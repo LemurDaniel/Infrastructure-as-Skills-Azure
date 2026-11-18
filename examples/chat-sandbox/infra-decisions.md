@@ -174,6 +174,21 @@ Nothing can be deployed until these are answered.
 - Which chat model and which embedding model, in which exact versions, with what quota? Looked up at render time against the region's catalogue as DataZoneStandard, never from memory. [sandbox, one throwaway environment] _(needed from: Workload-Team)_ — blocks: apply
 - The Entra app registration and its client secret. A directory object, not an Azure resource - the Identity-Team creates it; the secret goes into the Key Vault placeholder "entra-client-secret". [sandbox, one throwaway environment] _(needed from: Identity-Team)_ — blocks: apply
 
+## Who reaches what
+
+The connections between the parts, the rights each one holds on another, and where a secret is read from.
+
+**Connections**
+
+- Users → Chat application (Docker container): HTTPS 443
+- Chat application (Docker container) → entra-id: Sign-in (client secret)
+- Chat application (Docker container) → Chat and embedding models
+- Chat application (Docker container) → Search index over the documents (RAG): Search
+- Chat application (Docker container) → Persistent data of the chat application
+- Search index over the documents (RAG) → Persistent data of the chat application: indexes the documents
+- Search index over the documents (RAG) → Chat and embedding models: Embeddings
+- Chat application (Docker container) → Client secret of the Entra app: reads the client secret
+
 ## Appendix: every decision
 
 | Key | Value | Source |
@@ -233,7 +248,7 @@ Nothing can be deployed until these are answered.
 | `foundry.networking.restrict_outbound` | true | rule |
 | `foundry.identity.managed_identity` | system_assigned | rule |
 | `foundry.identity.role_assignments` | {"sandbox": [{"principal": "app-service", "role": "Cognitive Services OpenAI User"}, {"principal": "search-service", "role": "Cognitive Services OpenAI User"}]} | forced |
-| `foundry.security.local_authentication_disabled` | true | inherited |
+| `foundry.security.local_auth` | disabled | inherited |
 | `foundry.security.key_management` | platform_managed | inherited |
 | `foundry.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `foundry.observability.diagnostic_categories` | ["Audit", "RequestResponse", "AzureOpenAIRequestUsage"] | rule |
@@ -247,7 +262,7 @@ Nothing can be deployed until these are answered.
 | `search-service.networking.network_rule_bypass` | None | rule |
 | `search-service.identity.managed_identity` | system_assigned | rule |
 | `search-service.identity.role_assignments` | {"sandbox": [{"principal": "app-service", "role": "Search Index Data Reader"}]} | forced |
-| `search-service.security.local_authentication_disabled` | true | inherited |
+| `search-service.security.local_auth` | disabled | inherited |
 | `search-service.security.key_management` | platform_managed | inherited |
 | `search-service.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `search-service.observability.diagnostic_categories` | ["OperationLogs"] | rule |
@@ -258,8 +273,8 @@ Nothing can be deployed until these are answered.
 | `storage-account.networking.allow_azure_services_bypass` | true | rule |
 | `storage-account.identity.managed_identity` | system_assigned | rule |
 | `storage-account.identity.role_assignments` | {"sandbox": [{"principal": "app-service", "role": "Storage Blob Data Contributor"}, {"principal": "search-service", "role": "Storage Blob Data Reader"}]} | forced |
-| `storage-account.security.shared_access_key_enabled` | false | inherited |
-| `storage-account.security.min_tls_version` | TLS1_2 | rule |
+| `storage-account.security.local_auth` | disabled | inherited |
+| `storage-account.security.min_tls_version` | 1.2 | rule |
 | `storage-account.security.https_traffic_only` | true | rule |
 | `storage-account.security.allow_blob_public_access` | false | rule |
 | `storage-account.security.infrastructure_encryption_enabled` | true | rule |
@@ -295,9 +310,9 @@ Nothing can be deployed until these are answered.
 | `log-analytics-workspace.cost.daily_quota_gb` | -1 | inherited |
 | `log-analytics-workspace.cost.sku` | PerGB2018 | rule |
 | `log-analytics-workspace.access.public_network_access` | enabled | rule |
-| `log-analytics-workspace.access.local_auth` | false | inherited |
+| `log-analytics-workspace.access.local_auth` | disabled | inherited |
 | `log-analytics-workspace.access.rbac_only_access` | true | rule |
 | `log-analytics-workspace.data_protection.immediate_purge_protection` | true | rule |
 | `log-analytics-workspace.data_protection.archive_to_storage` | false | rule |
 | `wiring.private_dns_zones` | [] | forced |
-| `wiring.access` | [{"from": "users", "to": "app-service", "label": "HTTPS 443"}, {"from": "app-service", "to": "external:entra-id", "label": "Sign-in (client secret)"}, {"from": "app-service", "to": "foundry"}, {"from": "app-service", "to": "search-service", "label": "Search"}, {"from": "app-service", "to": "storage-account"}, {"from": "search-service", "to": "storage-account", "label": "indexes the documents"}, {"from": "search-service", "to": "foundry", "label": "Embeddings"}, {"from": "app-service", "to": "key-vault", "label": "reads the client secret"}] | your description |
+| `wiring.access` | Users → Chat application (Docker container): HTTPS 443; Chat application (Docker container) → entra-id: Sign-in (client secret); Chat application (Docker container) → Chat and embedding models; Chat application (Docker container) → Search index over the documents (RAG): Search; Chat application (Docker container) → Persistent data of the chat application; Search index over the documents (RAG) → Persistent data of the chat application: indexes the documents; Search index over the documents (RAG) → Chat and embedding models: Embeddings; Chat application (Docker container) → Client secret of the Entra app: reads the client secret | your description |

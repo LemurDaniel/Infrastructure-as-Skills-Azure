@@ -44,7 +44,7 @@ variables {
 run "security" {
   command = plan
 
-  # decision: storage-account.security.shared_access_key_enabled
+  # decision: storage-account.security.local_auth
   assert {
     condition     = azurerm_storage_account.this.shared_access_key_enabled == false
     error_message = "Shared key auth must stay off; access is via Entra ID and RBAC."

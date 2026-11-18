@@ -19,7 +19,7 @@ A resource group is the unit that is deleted, permitted and costed as a whole. E
 |---|---|---|---|
 | network | exists, only used | `rg-spoke-chatbot-prod-we` | Azure Network Security Group (containerapps), Azure Network Security Group (endpoints), Azure Network Security Group (integration), Azure Virtual Network |
 | data | created with the system | named by the naming convention | Azure Cosmos DB account (API for NoSQL), Azure Storage Account (uploads) |
-| application | created with the system | named by the naming convention | Azure AI Foundry (AI Services account with projects and model deployments), Azure AI Search service, Azure App Service (web app on an App Service plan) (mcp), Azure App Service (web app on an App Service plan) (web), Azure Container Apps (environment and one container app), Azure Container Registry, Azure Functions (function app on Flex Consumption or Elastic Premium), Azure Storage Account (host) |
+| application | created with the system | named by the naming convention | Azure AI Foundry (AI Services account with projects and model deployments), Azure AI Search service, Azure App Service (web app on an App Service plan) (mcp), Azure App Service (web app on an App Service plan) (web), Azure Container Apps (container app in an environment of its own or a shared one), Azure Container Registry, Azure Functions (function app on Flex Consumption or Elastic Premium), Azure Storage Account (host) |
 | monitoring | created with the system | named by the naming convention | Azure Application Insights (workspace-based), Azure Log Analytics Workspace |
 | security | created with the system | named by the naming convention | Azure Key Vault, Azure user-assigned managed identity (connector), Azure user-assigned managed identity (runner), Azure user-assigned managed identity (web) |
 
@@ -33,8 +33,8 @@ A resource group is the unit that is deleted, permitted and costed as a whole. E
   - therefore, Azure Cosmos DB account (API for NoSQL): The data do survive the loss of one datacenter of the region.
   - therefore, Azure AI Search service: 2 copies of the index answer queries.
   - therefore, Azure Container Registry: The registry does survive the loss of one datacenter of the region.
-  - therefore, Azure Container Apps (environment and one container app): The environment does survive the loss of one datacenter of the region.
-  - therefore, Azure Container Apps (environment and one container app): Copies of the app always running, at least: 2.
+  - therefore, Azure Container Apps (container app in an environment of its own or a shared one): The environment does survive the loss of one datacenter of the region.
+  - therefore, Azure Container Apps (container app in an environment of its own or a shared one): Copies of the app always running, at least: 2.
   - therefore, Azure Functions (function app on Flex Consumption or Elastic Premium): The function app does survive the loss of one datacenter of the region.
   - therefore, Azure Functions (function app on Flex Consumption or Elastic Premium): 1 instance(s) are kept warm so the first call does not wait.
   - therefore, Azure App Service (web app on an App Service plan) (web): The app does survive the loss of one datacenter of the region.
@@ -129,7 +129,7 @@ The security baseline of every part in one place. None of it was asked and it is
   - The shared admin account is switched off; access goes through company accounts.
   - Pulling images without signing in is not allowed.
   - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
-- **Azure Container Apps (environment and one container app)**
+- **Azure Container Apps (container app in an environment of its own or a shared one)**
   - The app has a shared, separately managed identity for reaching other services.
   - It uses the identity user-assigned-identity__runner.
   - The app reads the secrets none from the key vault.
@@ -165,10 +165,10 @@ The security baseline of every part in one place. None of it was asked and it is
 ### Azure Network Security Group (endpoints)
 
 - Subnets this group guards: snet-endpoints (virtual-network).
-- The group guards a subnet for private connections to Azure services.
+- The group guards a subnet for private connections to Azure services, reachable from the network on port 443.
 - Inbound traffic that no rule allows is refused, including traffic from other machines in the same network.
-- Outbound traffic to the internet that no rule allows is refused; what must go out goes through the company firewall. — because: `resources.network-security-group__endpoints.rules.subnet_purpose`
-- Traffic allowed explicitly: none.
+- Outbound traffic to the internet that no rule allows is refused - nothing in the subnet reaches the internet directly. — because: `resources.network-security-group__endpoints.rules.subnet_purpose`
+- Traffic allowed explicitly, beyond what the subnet's purpose brings: none.
 - Its logs go to log-analytics-workspace.
 - Logged: which rule was applied to which machine, how often each rule matched.
 
@@ -178,7 +178,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - The group guards a subnet for the outgoing traffic of web and function apps.
 - Inbound traffic that no rule allows is refused, including traffic from other machines in the same network.
 - Outbound traffic to the internet that no rule allows is left to Azure's built-in rules, which let it out.
-- Traffic allowed explicitly: none.
+- Traffic allowed explicitly, beyond what the subnet's purpose brings: none.
 - Its logs go to log-analytics-workspace.
 - Logged: which rule was applied to which machine, how often each rule matched.
 
@@ -188,7 +188,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - The group guards a subnet for the infrastructure of a container environment.
 - Inbound traffic that no rule allows is refused, including traffic from other machines in the same network.
 - Outbound traffic to the internet that no rule allows is left to Azure's built-in rules, which let it out.
-- Traffic allowed explicitly: none.
+- Traffic allowed explicitly, beyond what the subnet's purpose brings: none.
 - Its logs go to log-analytics-workspace.
 - Logged: which rule was applied to which machine, how often each rule matched.
 
@@ -334,7 +334,7 @@ The security baseline of every part in one place. None of it was asked and it is
 - Logged: every push, pull and delete of an image, every sign-in to the registry.
 - Usage and performance figures are collected.
 
-### Azure Container Apps (environment and one container app)
+### Azure Container Apps (container app in an environment of its own or a shared one)
 
 - The app runs on shared capacity that is billed per use and scales to nothing.
 - The environment is reachable only from inside the company network, through an internal load balancer.
@@ -422,6 +422,29 @@ Nothing can be deployed until these are answered.
 - Is there quota for gpt-4.1 and text-embedding-3-large as DataZoneStandard in West Europe, for 10,000 tokens per minute each? Not checked; a deployment beyond the quota fails at apply. _(needed from: workload owner)_ — blocks: apply
 - Is code-runner:1.0.0 pushed to the registry? The first revision pulls it while it is created, so the registry has to hold it before the app does. _(needed from: workload owner)_ — blocks: apply
 
+## Who reaches what
+
+The connections between the parts, the rights each one holds on another, and where a secret is read from.
+
+**Connections**
+
+- Users → Chat front end and back end: HTTPS 443
+- Chat front end and back end → entra-id: sign-in
+- Chat front end and back end → MCP tool server
+- Chat front end and back end → Chat and embedding models
+- Chat front end and back end → Search; indexes the uploads, embeds with the models
+- Chat front end and back end → Conversation history
+- Chat front end and back end → Uploaded files
+- Chat front end and back end → Secrets
+- MCP tool server → Code interpreter
+- MCP tool server → Chat and embedding models
+- Connector to the document store → Search; indexes the uploads, embeds with the models
+- Connector to the document store → Chat and embedding models
+- Connector to the document store → Secrets
+- Connector to the document store → State of the connector function
+- Connector to the document store → Application telemetry
+- Code interpreter → Images of all apps: pulls its image
+
 ## Appendix: every decision
 
 | Key | Value | Source |
@@ -493,7 +516,7 @@ Nothing can be deployed until these are answered.
 | `log-analytics-workspace.cost.daily_quota_gb` | -1 | inherited |
 | `log-analytics-workspace.cost.sku` | PerGB2018 | rule |
 | `log-analytics-workspace.access.public_network_access` | enabled | rule |
-| `log-analytics-workspace.access.local_auth` | false | inherited |
+| `log-analytics-workspace.access.local_auth` | disabled | inherited |
 | `log-analytics-workspace.access.rbac_only_access` | true | rule |
 | `log-analytics-workspace.data_protection.immediate_purge_protection` | true | rule |
 | `log-analytics-workspace.data_protection.archive_to_storage` | false | rule |
@@ -505,7 +528,7 @@ Nothing can be deployed until these are answered.
 | `application-insights.component.store_client_ip` | false | rule |
 | `application-insights.networking.public_network_access` | enabled | rule |
 | `application-insights.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__connector", "role": "Monitoring Metrics Publisher"}]} | your description |
-| `application-insights.security.local_authentication_disabled` | true | inherited |
+| `application-insights.security.local_auth` | disabled | inherited |
 | `key-vault.meta.purpose` | Secrets | your description |
 | `key-vault.vault.sku` | standard | rule |
 | `key-vault.vault.purge_protection` | true | rule |
@@ -543,8 +566,8 @@ Nothing can be deployed until these are answered.
 | `storage-account__uploads.networking.allow_azure_services_bypass` | true | rule |
 | `storage-account__uploads.identity.managed_identity` | system_assigned | rule |
 | `storage-account__uploads.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Storage Blob Data Contributor"}, {"principal": "search-service", "role": "Storage Blob Data Reader"}]} | your description |
-| `storage-account__uploads.security.shared_access_key_enabled` | false | inherited |
-| `storage-account__uploads.security.min_tls_version` | TLS1_2 | rule |
+| `storage-account__uploads.security.local_auth` | disabled | inherited |
+| `storage-account__uploads.security.min_tls_version` | 1.2 | rule |
 | `storage-account__uploads.security.https_traffic_only` | true | rule |
 | `storage-account__uploads.security.allow_blob_public_access` | false | rule |
 | `storage-account__uploads.security.infrastructure_encryption_enabled` | true | rule |
@@ -569,8 +592,8 @@ Nothing can be deployed until these are answered.
 | `storage-account__host.networking.allow_azure_services_bypass` | true | rule |
 | `storage-account__host.identity.managed_identity` | system_assigned | rule |
 | `storage-account__host.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__connector", "role": "Storage Blob Data Owner"}, {"principal": "user-assigned-identity__connector", "role": "Storage Table Data Contributor"}, {"principal": "user-assigned-identity__connector", "role": "Storage Queue Data Contributor"}]} | your description |
-| `storage-account__host.security.shared_access_key_enabled` | false | inherited |
-| `storage-account__host.security.min_tls_version` | TLS1_2 | rule |
+| `storage-account__host.security.local_auth` | disabled | inherited |
+| `storage-account__host.security.min_tls_version` | 1.2 | rule |
 | `storage-account__host.security.https_traffic_only` | true | rule |
 | `storage-account__host.security.allow_blob_public_access` | false | rule |
 | `storage-account__host.security.infrastructure_encryption_enabled` | true | rule |
@@ -603,7 +626,7 @@ Nothing can be deployed until these are answered.
 | `cosmos-db.identity.managed_identity` | none | rule |
 | `cosmos-db.identity.data_plane_role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Cosmos DB Built-in Data Contributor", "scope": "account"}]} | your description |
 | `cosmos-db.identity.role_assignments` | {"production": []} | rule |
-| `cosmos-db.security.local_authentication_disabled` | true | inherited |
+| `cosmos-db.security.local_auth` | disabled | inherited |
 | `cosmos-db.security.key_based_metadata_writes` | true | inherited |
 | `cosmos-db.security.key_management` | platform_managed | inherited |
 | `cosmos-db.data_protection.backup_policy` | continuous_7_days | derived from your answer |
@@ -627,7 +650,7 @@ Nothing can be deployed until these are answered.
 | `foundry.networking.restrict_outbound` | true | rule |
 | `foundry.identity.managed_identity` | system_assigned | rule |
 | `foundry.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Cognitive Services OpenAI User"}, {"principal": "user-assigned-identity__connector", "role": "Cognitive Services OpenAI User"}, {"principal": "search-service", "role": "Cognitive Services OpenAI User"}]} | your description |
-| `foundry.security.local_authentication_disabled` | true | inherited |
+| `foundry.security.local_auth` | disabled | inherited |
 | `foundry.security.key_management` | platform_managed | inherited |
 | `foundry.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `foundry.observability.diagnostic_categories` | ["Audit", "RequestResponse", "AzureOpenAIRequestUsage"] | rule |
@@ -642,7 +665,7 @@ Nothing can be deployed until these are answered.
 | `search-service.networking.network_rule_bypass` | None | rule |
 | `search-service.identity.managed_identity` | system_assigned | rule |
 | `search-service.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Search Index Data Reader"}, {"principal": "user-assigned-identity__connector", "role": "Search Index Data Contributor"}]} | your description |
-| `search-service.security.local_authentication_disabled` | true | inherited |
+| `search-service.security.local_auth` | disabled | inherited |
 | `search-service.security.key_management` | platform_managed | inherited |
 | `search-service.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `search-service.observability.diagnostic_categories` | ["OperationLogs"] | rule |
@@ -760,4 +783,4 @@ Nothing can be deployed until these are answered.
 | `app-service__mcp.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `app-service__mcp.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | rule |
 | `app-service__mcp.observability.metrics_enabled` | true | rule |
-| `wiring.access` | [{"from": "users", "to": "app-service__web", "label": "HTTPS 443"}, {"from": "app-service__web", "to": "external:entra-id", "label": "sign-in"}, {"from": "app-service__web", "to": "app-service__mcp"}, {"from": "app-service__web", "to": "foundry"}, {"from": "app-service__web", "to": "search-service"}, {"from": "app-service__web", "to": "cosmos-db"}, {"from": "app-service__web", "to": "storage-account__uploads"}, {"from": "app-service__web", "to": "key-vault"}, {"from": "app-service__mcp", "to": "container-apps"}, {"from": "app-service__mcp", "to": "foundry"}, {"from": "function-app", "to": "search-service"}, {"from": "function-app", "to": "foundry"}, {"from": "function-app", "to": "key-vault"}, {"from": "function-app", "to": "storage-account__host"}, {"from": "function-app", "to": "application-insights"}, {"from": "container-apps", "to": "container-registry", "label": "pulls its image"}] | your description |
+| `wiring.access` | Users → Chat front end and back end: HTTPS 443; Chat front end and back end → entra-id: sign-in; Chat front end and back end → MCP tool server; Chat front end and back end → Chat and embedding models; Chat front end and back end → Search; indexes the uploads, embeds with the models; Chat front end and back end → Conversation history; Chat front end and back end → Uploaded files; Chat front end and back end → Secrets; MCP tool server → Code interpreter; MCP tool server → Chat and embedding models; Connector to the document store → Search; indexes the uploads, embeds with the models; Connector to the document store → Chat and embedding models; Connector to the document store → Secrets; Connector to the document store → State of the connector function; Connector to the document store → Application telemetry; Code interpreter → Images of all apps: pulls its image | your description |

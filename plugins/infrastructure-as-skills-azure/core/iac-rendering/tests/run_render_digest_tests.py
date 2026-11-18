@@ -72,7 +72,7 @@ def main():
     expect('renders: public_network_access_enabled = false' in out, 'render-map.yaml values not applied (terraform_avm)')
     expect('renders: account_sku_name = "Standard_LRS" (development), "Standard_ZRS" (production)' in out,
            'render-map.yaml format not applied per stage')
-    expect('renders: min_tls_version = "TLS1_2"' in out, 'a passed-through answer not quoted for Terraform')
+    expect('renders: min_tls_version = "TLS1_2"' in out, 'a values literal not quoted for Terraform')
     expect('[per stage]' in out, 'stage map not tagged')
     expect('storage-account.data_protection.blob_soft_delete_days = 14' in out.split('-- assumed')[1],
            'assumed value not listed')

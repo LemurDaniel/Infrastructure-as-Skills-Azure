@@ -37,7 +37,7 @@ resource "azurerm_storage_account" "this" {
   # decision: storage-account.security.allow_blob_public_access - the account-level switch
   # that makes anonymous container access possible at all.
   allow_nested_items_to_be_public = false
-  # decision: storage-account.security.shared_access_key_enabled - access is via Entra ID
+  # decision: storage-account.security.local_auth - access is via Entra ID
   # and RBAC; a key would bypass both and is not attributable.
   shared_access_key_enabled = false
   # decision: storage-account.security.sftp_enabled - SFTP brings local users

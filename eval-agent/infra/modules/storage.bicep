@@ -53,7 +53,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
     supportsHttpsTrafficOnly: true
     // decision: storage-account.security.allow_blob_public_access
     allowBlobPublicAccess: false
-    // decision: storage-account.security.shared_access_key_enabled - access is via Entra ID and
+    // decision: storage-account.security.local_auth - access is via Entra ID and
     // RBAC; a key would bypass both.
     allowSharedKeyAccess: false
     // decision: storage-account.security.sftp_enabled

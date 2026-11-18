@@ -58,7 +58,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
     restrictOutboundNetworkAccess: true
     allowedFqdnList: []
 
-    // decision: foundry.security.local_authentication_disabled
+    // decision: foundry.security.local_auth
     disableLocalAuth: true
 
     // decision: foundry.security.key_management - platform_managed: no properties.encryption

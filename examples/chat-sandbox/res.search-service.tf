@@ -31,7 +31,7 @@ resource "azurerm_search_service" "this" {
     type = "SystemAssigned"
   }
 
-  # decision: search-service.security.local_authentication_disabled - inverse argument;
+  # decision: search-service.security.local_auth - inverse argument;
   # the admin key is gone, clients hold a role.
   local_authentication_enabled = false
   # decision: search-service.security.key_management - platform_managed: no CMK enforcement

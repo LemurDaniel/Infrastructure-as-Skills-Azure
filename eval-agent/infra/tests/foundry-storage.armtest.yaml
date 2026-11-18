@@ -55,7 +55,7 @@
   path: parameters.foundryRoleAssignments.value
   equals: []
 
-- decision: foundry.security.local_authentication_disabled
+- decision: foundry.security.local_auth
   path: resources.ai.properties.template.resources.account.properties.disableLocalAuth
   equals: true
 
@@ -106,7 +106,7 @@
   path: parameters.storageRoleAssignments.value
   equals: []
 
-- decision: storage-account.security.shared_access_key_enabled
+- decision: storage-account.security.local_auth
   path: resources.storage.properties.template.resources.storageAccount.properties.allowSharedKeyAccess
   equals: false
 

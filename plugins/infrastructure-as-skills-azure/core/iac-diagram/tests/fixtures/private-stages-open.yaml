@@ -198,7 +198,7 @@ resources:
         value: enabled
         source: default
       local_auth:
-        value: false
+        value: disabled
         source: deployment
       rbac_only_access:
         value: true
@@ -248,8 +248,8 @@ resources:
             role: Monitoring Metrics Publisher
         source: assumed
     security:
-      local_authentication_disabled:
-        value: true
+      local_auth:
+        value: disabled
         source: deployment
   key-vault:
     meta:
@@ -339,11 +339,11 @@ resources:
             role: Storage Blob Data Reader
         source: asked
     security:
-      shared_access_key_enabled:
-        value: false
+      local_auth:
+        value: disabled
         source: deployment
       min_tls_version:
-        value: TLS1_2
+        value: "1.2"
         source: default
       https_traffic_only:
         value: true
@@ -461,8 +461,8 @@ resources:
             role: Cognitive Services OpenAI User
         source: stated
     security:
-      local_authentication_disabled:
-        value: true
+      local_auth:
+        value: disabled
         source: deployment
       key_management:
         value: platform_managed
@@ -529,8 +529,8 @@ resources:
             role: Search Index Data Reader
         source: stated
     security:
-      local_authentication_disabled:
-        value: true
+      local_auth:
+        value: disabled
         source: deployment
       key_management:
         value: platform_managed

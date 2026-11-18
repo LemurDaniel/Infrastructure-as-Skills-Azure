@@ -77,7 +77,7 @@ resources:
         source: deployment
     security:
       min_tls_version:
-        value: TLS1_2
+        value: "1.2"
         source: default
     data_protection:
       replication:

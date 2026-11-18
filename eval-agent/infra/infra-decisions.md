@@ -329,6 +329,49 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 - Der Tuner läuft alle 24 Stunden: läuft der Fuzz-Agent gerade, tut er nichts; sonst verbessert er, schreibt auf den Branch, stößt den Fuzz an und wartet auf den nächsten Lauf. Wie viele Verbesserungen darf er pro Lauf höchstens committen (z. B. eine)? [Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Die Anmeldung nutzt eure bestehende App-Registrierung samt Client Secret. Wer erzeugt das Secret und trägt es im Tresor ein (der Tresor ist nur aus dem Netz erreichbar), und wer trägt nach dem ersten Ausrollen die Weiterleitungsadresse der App ein (https://<App-Adresse>/.auth/login/aad/callback) und aktiviert an der Registrierung unter Authentifizierung die ID-Token (Implicit- und Hybrid-Flows)? Ohne sie scheitert die Anmeldung mit AADSTS700054. _(gebraucht von: Identitäts-Team)_ — blockiert: apply
 
+## Wer greift worauf zu
+
+Die Verbindungen zwischen den Teilen, die Rechte, die ein Teil auf einem anderen hat, und woher ein Geheimnis gelesen wird.
+
+**Verbindungen**
+
+- Benutzer → Dashboard: zeigt Eval-Verlauf und Berichte an: HTTPS 443, Anmeldung mit Firmenkonto
+- Dashboard: zeigt Eval-Verlauf und Berichte an → Drift-, Fuzz- und Tuner-Berichte: Berichte lesen
+- Dashboard: zeigt Eval-Verlauf und Berichte an → Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner: Anmelde-Secret lesen
+- Dashboard: zeigt Eval-Verlauf und Berichte an → Images aller vier Apps: Image laden
+- Dashboard: zeigt Eval-Verlauf und Berichte an → github: Eval-Verlauf lesen
+- Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → Sprachmodelle für Drift-Watcher und Tuner: Modul-Änderungen bewerten
+- Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → Drift-, Fuzz- und Tuner-Berichte: Drift-Bericht schreiben
+- Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner: GitHub-Token lesen
+- Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → Images aller vier Apps: Image laden
+- Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → AVM-Quellen: Modulversionen und READMEs lesen
+- Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → github: Pull Request öffnen
+- Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout → Drift-, Fuzz- und Tuner-Berichte: Fuzz-Bericht schreiben
+- Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout → Images aller vier Apps: Image laden
+- Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout → github: Plugin-Stand lesen
+- Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → Drift-, Fuzz- und Tuner-Berichte: Fuzz-Bericht lesen
+- Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → Sprachmodelle für Drift-Watcher und Tuner: Layout-Änderung entwerfen
+- Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner: GitHub-Token lesen
+- Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → Images aller vier Apps: Image laden
+- Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → github: Verbesserung auf Branch schreiben
+- Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout: Läuft er? Neuen Lauf starten
+
+**Rechte**
+
+- Zugriff des Dashboards ohne Schlüssel hat die Rolle *AcrPull* auf Images aller vier Apps
+- Zugriff des Dashboards ohne Schlüssel hat die Rolle *Storage Blob Data Reader* auf Drift-, Fuzz- und Tuner-Berichte
+- Zugriff des Dashboards ohne Schlüssel hat die Rolle *Key Vault Secrets User* auf Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner
+- Zugriff des Drift-Watchers ohne Schlüssel hat die Rolle *AcrPull* auf Images aller vier Apps
+- Zugriff des Drift-Watchers ohne Schlüssel hat die Rolle *Storage Blob Data Contributor* auf Drift-, Fuzz- und Tuner-Berichte
+- Zugriff des Drift-Watchers ohne Schlüssel hat die Rolle *Key Vault Secrets User* auf Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner
+- Zugriff des Drift-Watchers ohne Schlüssel hat die Rolle *Azure AI User* auf Sprachmodelle für Drift-Watcher und Tuner
+- Zugriff des Fuzz-Agents ohne Schlüssel hat die Rolle *AcrPull* auf Images aller vier Apps
+- Zugriff des Fuzz-Agents ohne Schlüssel hat die Rolle *Storage Blob Data Contributor* auf Drift-, Fuzz- und Tuner-Berichte
+- Zugriff des Tuners ohne Schlüssel hat die Rolle *AcrPull* auf Images aller vier Apps
+- Zugriff des Tuners ohne Schlüssel hat die Rolle *Storage Blob Data Reader* auf Drift-, Fuzz- und Tuner-Berichte
+- Zugriff des Tuners ohne Schlüssel hat die Rolle *Key Vault Secrets User* auf Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner
+- Zugriff des Tuners ohne Schlüssel hat die Rolle *Azure AI User* auf Sprachmodelle für Drift-Watcher und Tuner
+
 ## Anhang: alle Entscheidungen
 
 | Schlüssel | Wert | Quelle |
@@ -393,7 +436,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `log-analytics-workspace.cost.daily_quota_gb` | -1 | übernommen |
 | `log-analytics-workspace.cost.sku` | PerGB2018 | Regel |
 | `log-analytics-workspace.access.public_network_access` | enabled | Regel |
-| `log-analytics-workspace.access.local_auth` | false | übernommen |
+| `log-analytics-workspace.access.local_auth` | disabled | übernommen |
 | `log-analytics-workspace.access.rbac_only_access` | true | Regel |
 | `log-analytics-workspace.data_protection.immediate_purge_protection` | true | Regel |
 | `log-analytics-workspace.data_protection.archive_to_storage` | false | Regel |
@@ -449,7 +492,7 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `foundry.networking.restrict_outbound` | true | Regel |
 | `foundry.identity.managed_identity` | none | Regel |
 | `foundry.identity.role_assignments` | {"production": []} | Regel |
-| `foundry.security.local_authentication_disabled` | true | übernommen |
+| `foundry.security.local_auth` | disabled | übernommen |
 | `foundry.security.key_management` | platform_managed | übernommen |
 | `foundry.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
 | `foundry.observability.diagnostic_categories` | ["Audit", "RequestResponse", "AzureOpenAIRequestUsage"] | Regel |
@@ -461,8 +504,8 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `storage-account.networking.allow_azure_services_bypass` | true | Regel |
 | `storage-account.identity.managed_identity` | none | Regel |
 | `storage-account.identity.role_assignments` | {"production": []} | Regel |
-| `storage-account.security.shared_access_key_enabled` | false | übernommen |
-| `storage-account.security.min_tls_version` | TLS1_2 | Regel |
+| `storage-account.security.local_auth` | disabled | übernommen |
+| `storage-account.security.min_tls_version` | 1.2 | Regel |
 | `storage-account.security.https_traffic_only` | true | Regel |
 | `storage-account.security.allow_blob_public_access` | false | Regel |
 | `storage-account.security.infrastructure_encryption_enabled` | true | Regel |
@@ -598,5 +641,5 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `key-vault.observability.diagnostic_categories` | ["AuditEvent", "AzurePolicyEvaluationDetails"] | Regel |
 | `key-vault.observability.metrics_enabled` | true | Regel |
 | `wiring.private_dns_zones` | ["privatelink.vaultcore.azure.net", "privatelink.blob.core.windows.net", "privatelink.azurecr.io", "privatelink.cognitiveservices.azure.com", "privatelink.openai.azure.com", "privatelink.services.ai.azure.com", "privatelink.azurewebsites.net"] | erzwungen |
-| `wiring.role_assignments` | [{"from": "user-assigned-identity__dashboard", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__dashboard", "to": "storage-account", "role": "Storage Blob Data Reader"}, {"from": "user-assigned-identity__dashboard", "to": "key-vault", "role": "Key Vault Secrets User"}, {"from": "user-assigned-identity__drift", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__drift", "to": "storage-account", "role": "Storage Blob Data Contributor"}, {"from": "user-assigned-identity__drift", "to": "key-vault", "role": "Key Vault Secrets User"}, {"from": "user-assigned-identity__drift", "to": "foundry", "role": "Azure AI User"}, {"from": "user-assigned-identity__fuzz", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__fuzz", "to": "storage-account", "role": "Storage Blob Data Contributor"}, {"from": "user-assigned-identity__tune", "to": "container-registry", "role": "AcrPull"}, {"from": "user-assigned-identity__tune", "to": "storage-account", "role": "Storage Blob Data Reader"}, {"from": "user-assigned-identity__tune", "to": "key-vault", "role": "Key Vault Secrets User"}, {"from": "user-assigned-identity__tune", "to": "foundry", "role": "Azure AI User"}] | Regel |
-| `wiring.access` | [{"from": "users", "to": "app-service__dashboard", "label": "HTTPS 443, Anmeldung mit Firmenkonto"}, {"from": "app-service__dashboard", "to": "storage-account", "label": "Berichte lesen"}, {"from": "app-service__dashboard", "to": "key-vault", "label": "Anmelde-Secret lesen"}, {"from": "app-service__dashboard", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__dashboard", "to": "external:github", "label": "Eval-Verlauf lesen"}, {"from": "app-service__drift", "to": "foundry", "label": "Modul-Änderungen bewerten"}, {"from": "app-service__drift", "to": "storage-account", "label": "Drift-Bericht schreiben"}, {"from": "app-service__drift", "to": "key-vault", "label": "GitHub-Token lesen"}, {"from": "app-service__drift", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__drift", "to": "external:AVM-Quellen", "label": "Modulversionen und READMEs lesen"}, {"from": "app-service__drift", "to": "external:github", "label": "Pull Request öffnen"}, {"from": "app-service__fuzz", "to": "storage-account", "label": "Fuzz-Bericht schreiben"}, {"from": "app-service__fuzz", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__fuzz", "to": "external:github", "label": "Plugin-Stand lesen"}, {"from": "app-service__tune", "to": "storage-account", "label": "Fuzz-Bericht lesen"}, {"from": "app-service__tune", "to": "foundry", "label": "Layout-Änderung entwerfen"}, {"from": "app-service__tune", "to": "key-vault", "label": "GitHub-Token lesen"}, {"from": "app-service__tune", "to": "container-registry", "label": "Image laden"}, {"from": "app-service__tune", "to": "external:github", "label": "Verbesserung auf Branch schreiben"}, {"from": "app-service__tune", "to": "app-service__fuzz", "label": "Läuft er? Neuen Lauf starten"}] | eure Beschreibung |
+| `wiring.role_assignments` | Zugriff des Dashboards ohne Schlüssel hat die Rolle *AcrPull* auf Images aller vier Apps; Zugriff des Dashboards ohne Schlüssel hat die Rolle *Storage Blob Data Reader* auf Drift-, Fuzz- und Tuner-Berichte; Zugriff des Dashboards ohne Schlüssel hat die Rolle *Key Vault Secrets User* auf Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner; Zugriff des Drift-Watchers ohne Schlüssel hat die Rolle *AcrPull* auf Images aller vier Apps; Zugriff des Drift-Watchers ohne Schlüssel hat die Rolle *Storage Blob Data Contributor* auf Drift-, Fuzz- und Tuner-Berichte; Zugriff des Drift-Watchers ohne Schlüssel hat die Rolle *Key Vault Secrets User* auf Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner; Zugriff des Drift-Watchers ohne Schlüssel hat die Rolle *Azure AI User* auf Sprachmodelle für Drift-Watcher und Tuner; Zugriff des Fuzz-Agents ohne Schlüssel hat die Rolle *AcrPull* auf Images aller vier Apps; Zugriff des Fuzz-Agents ohne Schlüssel hat die Rolle *Storage Blob Data Contributor* auf Drift-, Fuzz- und Tuner-Berichte; Zugriff des Tuners ohne Schlüssel hat die Rolle *AcrPull* auf Images aller vier Apps; Zugriff des Tuners ohne Schlüssel hat die Rolle *Storage Blob Data Reader* auf Drift-, Fuzz- und Tuner-Berichte; Zugriff des Tuners ohne Schlüssel hat die Rolle *Key Vault Secrets User* auf Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner; Zugriff des Tuners ohne Schlüssel hat die Rolle *Azure AI User* auf Sprachmodelle für Drift-Watcher und Tuner | Regel |
+| `wiring.access` | Benutzer → Dashboard: zeigt Eval-Verlauf und Berichte an: HTTPS 443, Anmeldung mit Firmenkonto; Dashboard: zeigt Eval-Verlauf und Berichte an → Drift-, Fuzz- und Tuner-Berichte: Berichte lesen; Dashboard: zeigt Eval-Verlauf und Berichte an → Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner: Anmelde-Secret lesen; Dashboard: zeigt Eval-Verlauf und Berichte an → Images aller vier Apps: Image laden; Dashboard: zeigt Eval-Verlauf und Berichte an → github: Eval-Verlauf lesen; Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → Sprachmodelle für Drift-Watcher und Tuner: Modul-Änderungen bewerten; Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → Drift-, Fuzz- und Tuner-Berichte: Drift-Bericht schreiben; Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner: GitHub-Token lesen; Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → Images aller vier Apps: Image laden; Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → AVM-Quellen: Modulversionen und READMEs lesen; Drift-Watcher: prüft AVM-Versionen, öffnet Pull Requests → github: Pull Request öffnen; Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout → Drift-, Fuzz- und Tuner-Berichte: Fuzz-Bericht schreiben; Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout → Images aller vier Apps: Image laden; Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout → github: Plugin-Stand lesen; Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → Drift-, Fuzz- und Tuner-Berichte: Fuzz-Bericht lesen; Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → Sprachmodelle für Drift-Watcher und Tuner: Layout-Änderung entwerfen; Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner: GitHub-Token lesen; Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → Images aller vier Apps: Image laden; Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → github: Verbesserung auf Branch schreiben; Tuner: verbessert das Layout auf einem Branch, stößt den Fuzz an → Fuzz-Agent: zeichnet Zufalls-Specs vom Branch, bewertet das Layout: Läuft er? Neuen Lauf starten | eure Beschreibung |
