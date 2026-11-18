@@ -374,15 +374,29 @@ the detail; this list says what was decided and why, so a session does not reope
   new format** (2026-11-18, commit `b36b7aa`, numbers in the description of #55): Sonnet 12
   of 18 cases at 100%, 47 of 57 runs, **incomplete** - it stopped at $34.72 against the $30
   ceiling, the four pattern cases alone cost about $12.40 - and Haiku 5 of 18, 22 of 60,
-  $1.71. Neither is on `eval-history`, the badge is not re-pinned, `baseline.json` is
-  untouched, and no temp directory was kept, so no failing spec was read. Three findings
+  $1.71. That run kept no temp directory, so no failing spec was read. On `eval-history`
+  since (`5fc62b6`, badge pinned to it): Haiku as that run, Sonnet as a **composed** entry, its
+  note saying so - twelve cases from that run, five from the re-test on `909e397`,
+  `language-en-request` from the re-test on the branch of #59; 18 of 18, $44.23. No single
+  complete Sonnet run on one commit exists for 0.8.0, and `baseline.json` is untouched. Three findings
   were fixed without a re-run: `no-contributor-role` matched the role's name anywhere,
   also in the reason of the override (0 of 4 on Sonnet); the rule for a keyless resource
   covered only one that another resource reaches, so a lone storage account got no open
   entry under `wiring.role_assignments` (1 of 2); the routing row for
   `container-microservices` said "that call each other" against a worker nobody calls.
-  Unexplained on Sonnet and unread: `no-german-in-spec` 1 of 2, `no-invented-workspace-id`
-  3 of 4, `stages-default-stack` 1 of 2. Haiku records the pattern in 2 of 16 runs -
+  A re-test of the six cases Sonnet did not pass, with kept directories (`909e397`, $10.07),
+  passed everything but `no-german-in-spec` (1 of 2): `no-invented-workspace-id` and
+  `stages-default-stack` did not reproduce and stay unexplained. The German came from the
+  plugin's own examples: `spec.md`'s example spec was German throughout (purposes, the open
+  question, `Plattform-Team`) and one run copied its register into an English spec; with the
+  example in English the open questions and owners were English and two monitoring purposes
+  and two labels still German, two of them verbatim from German blocks of `iac-authoring`.
+  The skill now says its German wording is the `de` variant only and that a part the request
+  gives no purpose gets none; 2 of 2 after that ($1.39) - two runs, no rate, and the cause is
+  inferred. Not done: about ten places in `iac-authoring` put the German block before the
+  English one. The grader matched one umlaut and missed three German strings; it now lists
+  common German words. No German request was re-run against the English example.
+  Haiku records the pattern in 2 of 16 runs -
   recorded, not chased. The four pattern cases dropped to `runs: 2` afterwards (owner's
   call: they cost about $3 each at four runs), so the suite is 52 runs, about $28 on Sonnet
   against a ceiling raised from $30 to $40 for the run before a merge. Nothing is

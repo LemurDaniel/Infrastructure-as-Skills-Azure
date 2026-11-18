@@ -42,7 +42,7 @@ spec:
 # map keyed by stage, rendered as a parameter whose value lives in the stage's file.
 context:
   environments: [development, test, production]
-  language: de  # the customer's language (en | de): the picture, the decision document, the customer-facing text
+  language: en  # the customer's language (en | de): the picture, the decision document, the customer-facing text
   # location, subscription_id and resource_group_name are never asked: what the request
   # states is written here, what it does not is an open: entry and a placeholder in the
   # stage file. A resource group the render creates needs no name here.
@@ -259,7 +259,7 @@ resources:
   app-service:
     meta:
       purpose:
-        value: Zahlungs-API
+        value: Payment API
         source: stated
     hosting:
       sku:
@@ -285,7 +285,7 @@ resources:
   storage-account:
     meta:
       purpose:
-        value: Belege
+        value: Receipts
         source: stated
     networking:
       public_network_access:
@@ -313,7 +313,7 @@ resources:
   key-vault:
     meta:
       purpose:
-        value: API-Schlüssel
+        value: API key
         source: stated
     vault:
       sku:
@@ -370,8 +370,8 @@ wiring:
 open:
 - key: context.subscription_id
   environments: [production]
-  question: In welche Subscription wird die Produktion ausgerollt?
-  owner: Plattform-Team
+  question: Which subscription is production deployed into?
+  owner: platform team
   blocks: apply
 ```
 
@@ -402,6 +402,11 @@ Phase 0 sets it from the language the request and the answers are written in; it
 asked. The scripts read it (`new_diagram.py`, `verify_diagram.py`, `export_decisions.py`) and
 their `--language` only overrides it for a check. A spec without it is drawn in English and
 `check_spec.py` warns. Keys, values, `why` and `reason` stay English whatever it says.
+
+The example under *Shape* is an English request's, so its purposes, its open question and the
+owner are English. For a German request (`language: de`) the same places read `Zahlungs-API`,
+`In welche Subscription wird die Produktion ausgerollt?` and `Plattform-Team`: the language
+follows the request, never the example.
 
 ## Stages: one value or a map
 
@@ -689,7 +694,7 @@ open:
 | `key` | Required. The key path the entry stands for (`context.subscription_id`, `deployment.address_space`, `resources.<key>.<group>.<id>`, `wiring.role_assignments`) |
 | `environments` | The stages still missing, where the value is a stage map; absent means every stage |
 | `question` | What has to be answered, in `context.language` |
-| `owner` | Who answers it, in `context.language` (`Plattform-Team`, `network / IPAM owner`); absent when the person asking is the one to answer |
+| `owner` | Who answers it, in `context.language` (`platform team`, `network / IPAM owner`; under `de` `Plattform-Team`, `Netzwerk-Team`); absent when the person asking is the one to answer |
 | `blocks` | Required. The first step it stops: `render` - the part is not rendered until it is answered (nothing to render it from); `plan` - rendered, but `plan` cannot run on a placeholder; `apply` - rendered and planned with a placeholder in the stage file, the pipeline refuses `apply`. Most entries are `apply`: the placeholder exists so that everything before it runs |
 
 Neither is a defect in the spec. A run that invents a resource group to avoid an empty
@@ -793,7 +798,7 @@ rest was built from.
 `resources.<key>.meta` holds what describes a resource rather than decides it, and no
 question set asks it. Today that is `purpose`: a few words in the customer's language
 (`context.language`), for a resource whose purpose the request says - the picture prints it
-under the type (`Storage Account · Belege`), and the `component` resource-group scheme
+under the type (`Storage Account · Receipts`, under `de` `Storage Account · Belege`), and the `component` resource-group scheme
 derives its parts from it
 (`source: { forced_by: meta.purpose }`). A resource the request names without saying what it
 is for gets none, never a restatement of its type. `meta` is written first in a resource,
@@ -804,7 +809,7 @@ resources:
   storage-account:
     meta:
       purpose:
-        value: Belege
+        value: Receipts
         source: stated
 ```
 
