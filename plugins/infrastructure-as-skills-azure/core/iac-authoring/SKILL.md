@@ -87,11 +87,22 @@ question sets - by that absolute path. Never search for them with Glob from the 
 directory: the plugin is outside it, and a search there may be refused. A file that cannot be
 read is no reason to skip the step that needs it; say which step and why.
 
+### Which Python
+
+The commands in these skills are written `python3`. Use the first of `python3`, `python` and
+`py -3` that runs a script, and reuse it for the rest of the run: on Windows `python3` is
+often a stub that prints "Python was not found". Every script needs PyYAML and says so
+when it is missing, with exit 2 - "could not run", never a result. Then offer once, in
+`context.language`, to install it (`pip install pyyaml`); a no, or no Python at all, is a
+session without the scripts and follows *Without a shell* below. Exit codes are the same
+everywhere: 0 clean, 1 the check found something, 2 the script could not run, and 3 only
+from the version gate.
+
 ### Without a shell
 
 The scripts - `write_spec.py`, `check_spec.py`, `export_decisions.py`, the diagram scripts,
 `sync_claude_md.py` - need Python and a shell. A session without one (a sandbox, a host that
-grants no Bash) loses the tools, not the rules:
+grants no Bash, a shell without Python or PyYAML) loses the tools, not the rules:
 
 - The version gate and the `CLAUDE.md` section are done by hand with Read and Edit, as their
   sections say; the spec is written in its canonical form by hand and called unvalidated.
@@ -112,9 +123,11 @@ writes goes into the repository's IaC root, or `infra/` when there is none, and 
 committed with the code — it is what the next run extends. The rules for both, and for
 several roots, are in [references/spec.md](references/spec.md#where-it-lives).
 
-**Version gate, first.** Where a spec was found, run `python <plugin>/core/iac-authoring/scripts/check_plugin_version.py <spec>`
+**Version gate, first.** Where a spec was found, run `python3 <plugin>/core/iac-authoring/scripts/check_plugin_version.py <spec>`
 (without a shell: read `version` in `<plugin>/.claude-plugin/plugin.json` and `spec.plugin_version`
 and compare them as numbers yourself; a spec without the field is not held back).
+Any exit other than 0 or 3 means the script could not run: do the comparison by hand, as
+without a shell - never read it as a pass.
 Exit 3 - or a spec version higher than the installed one - means the spec was written by a newer plugin than the installed one: **stop** - no sync, no
 question of the interview, nothing written or rendered. Ask once with AskUserQuestion, in
 `context.language`: the spec's and the installed version, and "Plugin jetzt aktualisieren?" / "Update the plugin now?" with
@@ -129,7 +142,7 @@ this run writes into the spec sets `spec.plugin_version` to the installed versio
 (`.claude-plugin/plugin.json`).
 
 Then bring the repository's `CLAUDE.md` section up to date, before
-anything else is asked: `python <plugin>/core/iac-rendering/scripts/sync_claude_md.py
+anything else is asked: `python3 <plugin>/core/iac-rendering/scripts/sync_claude_md.py
 <repo-root> --root <iac-root> --write`. It replaces only an older plugin section, leaves a
 newer one alone and never fails the run (without a shell, apply the same rules by hand with
 Read and Edit, from [claude-md-block.md](../iac-rendering/references/claude-md-block.md)); say in one line what it did. A section **newer**
@@ -164,8 +177,8 @@ ask what the system needs; I set the technical decisions from the baseline and s
 you at the end." There is
 no second set of questions for someone technical. What the person knows beyond them they
 say in prose - "ZRS", "subnet snet-pe-01", "TLS 1.2 is enough" ("TLS 1.2 reicht") - and Phase 0 records it as
-`stated`, which outranks every default; what they want changed afterwards is an
-`overridden` value in the spec, not a second interview.
+`stated`, which outranks every default; what they want changed afterwards is a value with
+`source: { overridden: <reason> }` in the spec, not a second interview.
 
 No question with Azure vocabulary reaches the person, whatever it would cost to default
 it. The cost of a wrong default is a line in Phase 4 that the person can object to; the
@@ -387,7 +400,7 @@ mapping:
   reachable is fine" ("Öffentlich erreichbar ist okay") said about the development stage is said about the system: the
   exposure is `public` in every stage, the network `none` in every stage. A run never
   splits a posture decision (exposure, local auth, keys, DNS, landing zone) by stage; only
-  the customer's explicit word for a named stage does, recorded as `overridden` there.
+  the customer's explicit word for a named stage does, recorded `{ overridden: <reason> }` there.
 - **An empty list is not always an answer.** Storage role assignments with shared keys
   off: an empty default renders an account nobody can use, so it is an `open:` entry with
   its owner rather than a decided value - read the question's `why` before recording `[]`.
@@ -436,9 +449,10 @@ and six Bicep files, and comparing the two outputs stops meaning anything. See
 
 `deployment.module_source` is not read from the repository: it is asked first, in Phase 0,
 and the repository only decides which answer is recommended (authored resource blocks
-already there → `authored`). Under `avm` the split above is mostly decided too: one module
-call per resource, the root holding the wiring, so `single` unless a pattern says
-otherwise.
+already there → `authored`). Under `avm` the list above decides as for any code: one module
+call per resource and the root holding the wiring is `single` for a single resource or
+family, `per-family` once the resources span more than one - unless the chosen pattern
+carries a `composition` of its own.
 
 ## Phase 2 — Resolve the deployment set, then every resource question
 
@@ -515,10 +529,10 @@ For each question, the answer then comes from the first source that has one:
 
 | # | Source | `source` recorded as |
 |---|---|---|
-| 1 | What the user said — the request and the Phase 0 description | `stated`, or `overridden` where it changes a carried value |
+| 1 | What the user said: in the request or the Phase 0 description, or as an answer in the interview | `stated` for the first, `asked` for an interview answer; `{ overridden: <reason> }` where it changes a carried value or departs from a default |
 | 2 | The existing `infra-spec.yaml` | The source it already has; `carried` only for what the repository holds without one (a pipeline, a `modules/` layout) |
 | 3 | The chosen pattern's pre-answers, written by `apply_pattern.py` | `pattern` |
-| 4 | The deployment set's answer: copied for an `answer: { deployment }` question, mapped through the question's table for an `answer: { question, map }` one | `deployment`, or `{ derived_from: deployment.<id> }` |
+| 4 | The deployment set's answer: copied for an `answer: { deployment }` question, mapped through the question's table for an `answer: { question, map }` one; for a `derived` question what the landing-zone answers imply | `deployment`, or `{ derived_from: deployment.<id> }`; `platform` for the landing-zone case; `{ forced_by: <key> }` where another answer determined it |
 | 5 | The question's `default` | `default` |
 
 A carried value outranks a pattern and a default on purpose: it was decided, and quite
@@ -531,7 +545,7 @@ A question with `required: true` has no default and no safe guess. It is the onl
 must ask. A question with `resolved_by: interview`
 ([question-set-format](references/question-set-format.md#who-resolves-it-resolved_by)) is
 put to the person; one with `resolved_by: derived`, or none, is never put to a customer —
-it resolves from the profile or the default, and a
+it resolves from the interview's answers or the default, and a
 `required` one nobody present can answer becomes an `open:` entry naming its owner.
 
 **A forced value is pre-answered, not asked.** `key_protection: hsm` requires a Premium Key
@@ -558,11 +572,11 @@ lives. Read it before choosing any default or justifying one.
 
 ## Phase 3 — Ask, in one batch
 
-Only what Phase 0's description left open reaches this phase, and only the questions the
-mode allows. A question the user already answered in prose and is asked again tells them
+Only what Phase 0's description left open reaches this phase, and only the questions marked
+`resolved_by: interview`. A question the user already answered in prose and is asked again tells them
 the description was not read.
 
-**Never asked in any mode, whatever the description leaves open: the workload short name,
+**Never asked, whatever the description leaves open: the workload short name,
 the subscription id, the resource group and the region.** They are `parameterized` context
 in the deployment set - input variables the stage file supplies, not decisions. A question
 about them, "there is no default for these" included, is a bug in the interview: the person
@@ -852,7 +866,7 @@ it that way*, so it is in front of the person while they answer.
 
 Close it with one `AskUserQuestion`: **Passt das Design?** / **Does the design fit?** - *Ja, so bauen* / *Yes, build it that way* (recommended
 when nothing is open) / *Etwas fehlt oder ist zu viel* / *Something is missing or too much* (the person says what; the spec is
-not written until the list is right). A part the customer strikes is removed, a part they
+changed, checked and the list shown again until it is right - nothing but the spec is written before the yes). A part the customer strikes is removed, a part they
 add goes through `azure-resources` like any other request, and the account below is
 redone for the change. A security row the person wants different comes through the
 dialog's free answer: only that row is opened and recorded
@@ -930,7 +944,7 @@ completed here; nothing else is written or drawn before the working mode, and no
 the diagram loop is generated until the code question has been answered with a yes.
 
 **First, ask how the rest of the run works - once, as the first step of Phase 5, before
-the spec is written.** With the Agent tool available, ask through `AskUserQuestion`:
+anything but the spec is written.** With the Agent tool available, ask through `AskUserQuestion`:
 **Subagents** (recommended) or **Same session**. The answer covers both loops that follow -
 the diagram loop below and the code loop of [iac-rendering](../iac-rendering/SKILL.md)
 after the yes - and it is a working mode, not a decision: it is not written to the spec.
@@ -957,8 +971,8 @@ How should I continue?
   2. In this session - I do everything myself, one step after the other. Cheaper, no second review
 ```
 
-**Then write the spec** - written in Phase 4 before the design was shown; this is where it
-goes and how. `infra-spec.yaml` goes into the user's repository — the IaC root,
+**Where the spec goes and how it is written** - it was written in Phase 4, before the design
+was shown; these are the rules that writing follows. `infra-spec.yaml` goes into the user's repository — the IaC root,
 or `infra/` — is laid out with `write_spec.py` (order, group comments, the plugin version;
 it changes no value and keeps every comment; without a shell, write it in that
 [canonical form](references/spec.md#canonical-form) by hand) and validated with
@@ -1123,8 +1137,8 @@ The picture is polished (infra/infra-diagram.drawio.png). Shall I generate the c
   - Not yet                   -> stop here; the spec and the picture stay, the next run extends them
 ```
 
-"Change something" ("Etwas ändern") loops back to the spec, never into code: change the decision there, as
-`overridden` where it replaces an answer, re-export the decision document, redraw, and show
+"Change something" ("Etwas ändern") loops back to the spec, never into code: change the decision there, with
+`source: { overridden: <reason> }` where it replaces an answer, re-export the decision document, redraw, and show
 the new draft with the draft question. An objection to the polished picture itself ("the
 arrows overlap" / "die Pfeile überlappen sich") is a review finding that the review missed: it
 goes to the fix agent like any other `error`, and the customer sees the picture again only
@@ -1197,8 +1211,8 @@ digest and written by a script; the format and the rules are in
 
 ## Adding a resource
 
-A resource goes into a family under `resources/` — `storage`, `network`, `observability`
-today, `compute`, `data`, `security` planned. Families are not skills; the single
+A resource goes into a family under `resources/` - the families are the rows of the
+[azure-resources](../azure-resources/SKILL.md) table. Families are not skills; the single
 [azure-resources](../azure-resources/SKILL.md) skill routes into all of them. Inside the
 family:
 

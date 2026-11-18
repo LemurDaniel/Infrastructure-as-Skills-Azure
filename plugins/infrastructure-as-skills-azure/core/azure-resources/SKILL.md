@@ -37,7 +37,7 @@ Read the family's `routing.md`. It names the question set for the request, or sa
 that none exists yet.
 
 **A request for a family that is not in this table is said out loud.** Synapse, Databricks,
-Data Explorer, Fabric, policy, management groups, budgets — none have a set yet. Generating one from the guardrails
+Data Explorer, Fabric, policy, management groups - none have a set. Generating one from the guardrails
 while this table implies coverage removes the one property that makes this plugin worth
 using, and does it silently. Say that no question set backs it, offer to generate from
 [the guardrails](../iac-authoring/references/guardrails.md) with that recorded in the spec,

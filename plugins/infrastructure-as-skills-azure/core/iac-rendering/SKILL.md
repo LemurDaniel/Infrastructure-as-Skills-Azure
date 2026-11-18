@@ -23,14 +23,16 @@ So: **never render without a spec.** If there is none, go to
 conversation produces code nobody can regenerate and a decision record that does not exist.
 
 **Version gate: a spec from a newer plugin is not rendered.** Run
-`python <plugin>/core/iac-authoring/scripts/check_plugin_version.py <spec>` first. Exit 3 means
+`python3 <plugin>/core/iac-authoring/scripts/check_plugin_version.py <spec>` first (which interpreter:
+[iac-authoring](../iac-authoring/SKILL.md#which-python)). Any exit other than 0 or 3 means the
+script could not run: compare the two versions by hand, never read it as a pass. Exit 3 means
 `spec.plugin_version` is newer than the installed plugin: halt - render nothing, write nothing -
 and follow the version gate in [iac-authoring](../iac-authoring/SKILL.md#before-anything--find-an-existing-spec):
 one AskUserQuestion offering the update, no way on with the older plugin. A render that goes
 ahead sets `spec.plugin_version` to the installed version.
 
 **Then the digest, before any reference:**
-`python <plugin>/core/iac-rendering/scripts/render_digest.py <spec>`. It prints the spec's
+`python3 <plugin>/core/iac-rendering/scripts/render_digest.py <spec>`. It prints the spec's
 shape, every deployment and resource decision under the key path its test names, with
 its value, source and what the resource's `render-map.yaml` maps it to for the target and
 implementation - the attribute and the literal the value becomes
@@ -87,7 +89,7 @@ there when the digest does not explain it, never infer the shape from an example
    naming modules are not shipped. Both read the root's `naming.yaml`, never the plugin's
    default, so a re-render keeps every name the root already has. **A root without one gets
    it first, before any name is rendered**, even for a one-line change:
-   `python <plugin>/core/iac-rendering/scripts/write_naming.py <spec>` writes the full copy,
+   `python3 <plugin>/core/iac-rendering/scripts/write_naming.py <spec>` writes the full copy,
    with each type's pattern as an existing Bicep root names it (`write_spec.py` runs it too).
    Never copy the file by hand; a name it reports as not read back is checked by hand.
 6. **Write the secure value explicitly**, even where it matches the provider or API
