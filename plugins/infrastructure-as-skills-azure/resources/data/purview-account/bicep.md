@@ -87,7 +87,7 @@ module pview 'br/public:avm/res/purview/account:0.10.0' = {
       }
     ]
 
-    // decision: purview-account.identity.role_assignments
+    // decision: wiring.role_assignments
     roleAssignments: roleAssignments
     enableTelemetry: true
   }

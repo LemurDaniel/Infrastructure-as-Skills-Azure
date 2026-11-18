@@ -44,7 +44,7 @@ module "service_bus" {
   sku                          = "Premium"
   capacity                     = 1
   premium_messaging_partitions = 1
-  # decision: service-bus.namespace.minimum_tls_version
+  # decision: service-bus.namespace.min_tls_version
   minimum_tls_version = "1.2"
   # decision: service-bus.namespace.local_auth - inverse input, module default true
   local_auth_enabled = false

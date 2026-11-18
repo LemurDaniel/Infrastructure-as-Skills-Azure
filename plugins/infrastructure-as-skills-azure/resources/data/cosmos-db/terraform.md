@@ -68,7 +68,7 @@ module "cosmos" {
   # private_dns_records: policy - the platform policy writes the record
   private_endpoints_manage_dns_zone_group = false
 
-  # decision: cosmos-db.security.local_authentication_disabled / key_based_metadata_writes
+  # decision: cosmos-db.security.local_auth / key_based_metadata_writes
   local_authentication_disabled        = true
   access_key_metadata_writes_enabled   = false
 
@@ -110,12 +110,13 @@ output "endpoint" { value = module.cosmos.endpoint }
 
 ### Data-plane roles
 
-The module has **no input** for Cosmos DB's own role assignments. They are rendered next to it,
-scoped to the account or to one database or container:
+The module has **no input** for Cosmos DB's own role assignments. The `wiring.role_assignments`
+entries with a data role on this account are rendered next to it, scoped to the account
+([role-assignments.md](../../../core/iac-rendering/references/role-assignments.md)):
 
 ```hcl
 resource "azurerm_cosmosdb_sql_role_assignment" "this" {
-  for_each = var.data_plane_role_assignments
+  for_each = local.cosmos_data_roles # the wiring entries whose role is a Cosmos DB data role
 
   resource_group_name = var.resource_group_name
   account_name        = data.naming_name.cosmos.name

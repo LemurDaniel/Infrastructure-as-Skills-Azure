@@ -20,6 +20,14 @@ server with its Entra administrator, then the databases and pools, then the serv
 diagnostic setting on `master`, then the `database_users` step (T-SQL, as a member of the administrator
 group), then the consumers. The workspace before every diagnostic setting.
 
+## Roles
+
+A role on the server is a `wiring.role_assignments` entry with it as `to`. It is Azure RBAC
+on the server - the control plane: creating databases, changing firewall rules, reading the
+audit settings. It is separate from the database roles on purpose (`database_users` are
+rights inside the database, created by a statement). Usually the deploying principal holds
+these alone, and the spec then has no entry for the server.
+
 ## Pitfalls
 
 **Two permission systems.** Azure RBAC governs the control plane; inside each database the roles

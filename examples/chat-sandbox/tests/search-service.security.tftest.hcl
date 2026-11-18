@@ -44,7 +44,7 @@ variables {
 run "security" {
   command = plan
 
-  # decision: search-service.security.local_authentication_disabled
+  # decision: search-service.security.local_auth
   assert {
     condition     = azurerm_search_service.this.local_authentication_enabled == false
     error_message = "API keys off (inverse argument); clients hold a role."

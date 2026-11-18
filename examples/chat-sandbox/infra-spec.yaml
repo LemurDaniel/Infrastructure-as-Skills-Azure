@@ -34,21 +34,12 @@ deployment:
     value:
     - role: Role Based Access Control Administrator
       scope: resource_group
-      for:
-      - resources.foundry.identity.role_assignments
-      - resources.search-service.identity.role_assignments
-      - resources.storage-account.identity.role_assignments
-      - resources.key-vault.identity.role_assignments
+      for: [wiring.role_assignments]
     - role: Key Vault Secrets Officer
       scope: key-vault
       for: [resources.key-vault.security.secret_placeholders]
     source:
-      forced_by:
-      - resources.foundry.identity.role_assignments
-      - resources.search-service.identity.role_assignments
-      - resources.storage-account.identity.role_assignments
-      - resources.key-vault.identity.role_assignments
-      - resources.key-vault.security.secret_placeholders
+      forced_by: [wiring.role_assignments, resources.key-vault.security.secret_placeholders]
 
   # --- requirements ---
   outage_impact:
@@ -260,18 +251,9 @@ resources:
       managed_identity:
         value: system_assigned
         source: default
-      role_assignments:
-        value:
-          sandbox:
-          - principal: app-service
-            role: Cognitive Services OpenAI User
-          - principal: search-service
-            role: Cognitive Services OpenAI User
-        source:  # the app calls the models, the search service embeds with them
-          forced_by: wiring.access
     security:
-      local_authentication_disabled:
-        value: true
+      local_auth:
+        value: disabled
         source: deployment
       key_management:
         value: platform_managed
@@ -322,16 +304,9 @@ resources:
       managed_identity:
         value: system_assigned
         source: default
-      role_assignments:
-        value:
-          sandbox:
-          - principal: app-service
-            role: Search Index Data Reader
-        source:  # the app queries the index
-          forced_by: wiring.access
     security:
-      local_authentication_disabled:
-        value: true
+      local_auth:
+        value: disabled
         source: deployment
       key_management:
         value: platform_managed
@@ -370,21 +345,12 @@ resources:
       managed_identity:
         value: system_assigned
         source: default
-      role_assignments:
-        value:
-          sandbox:
-          - principal: app-service
-            role: Storage Blob Data Contributor
-          - principal: search-service
-            role: Storage Blob Data Reader
-        source:  # the app keeps its data here, the search service indexes it
-          forced_by: wiring.access
     security:
-      shared_access_key_enabled:
-        value: false
+      local_auth:
+        value: disabled
         source: deployment
       min_tls_version:
-        value: TLS1_2
+        value: '1.2'
         source: default
       https_traffic_only:
         value: true
@@ -475,14 +441,6 @@ resources:
       network_acl_bypass:
         value: None
         source: default
-    identity:
-      role_assignments:
-        value:
-          sandbox:
-          - principal: app-service
-            role: Key Vault Secrets User
-        source:  # the app reads the client secret at start
-          forced_by: wiring.access
     security:
       enabled_for_services:
         value: []
@@ -526,7 +484,7 @@ resources:
         value: enabled
         source: default
       local_auth:
-        value: false
+        value: disabled
         source: deployment
       rbac_only_access:
         value: true
@@ -544,6 +502,28 @@ wiring:
     value: []
     source:  # no private endpoints, no zones
       forced_by: deployment.network_ownership
+  role_assignments:
+    value:
+    - from: app-service  # the app calls the models, the search service embeds with them
+      to: foundry
+      role: Cognitive Services OpenAI User
+    - from: search-service
+      to: foundry
+      role: Cognitive Services OpenAI User
+    - from: app-service  # the app queries the index
+      to: search-service
+      role: Search Index Data Reader
+    - from: app-service  # the app keeps its data here, the search service indexes it
+      to: storage-account
+      role: Storage Blob Data Contributor
+    - from: search-service
+      to: storage-account
+      role: Storage Blob Data Reader
+    - from: app-service  # the app reads the client secret at start
+      to: key-vault
+      role: Key Vault Secrets User
+    source:
+      forced_by: wiring.access
   access:
     value:
     - from: users

@@ -72,7 +72,7 @@ module redis 'br/public:avm/res/cache/redis-enterprise:0.5.1' = {
       modules: []
       // decision: redis-cache.security.encrypted_connections_only
       clientProtocol: 'Encrypted'
-      // decision: redis-cache.security.access_keys_authentication_disabled
+      // decision: redis-cache.security.local_auth
       accessKeysAuthentication: 'Disabled'
       // decision: redis-cache.data_protection.persistence - disabled: a cache is rebuilt from its source
       persistence: { type: 'disabled' }

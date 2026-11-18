@@ -75,17 +75,15 @@ decisions:
   access.local_auth:
     terraform_avm:
       attribute: log_analytics_workspace_local_authentication_enabled
-      passthrough: true
-      note: same polarity; module default true - must be written
-    terraform: { attribute: local_authentication_enabled, passthrough: true, note: the 4.x local_authentication_disabled is gone in 5.x }
+      values: { disabled: false, enabled: true }
+      note: module default true - must be written
+    terraform: { attribute: local_authentication_enabled, values: { disabled: false, enabled: true }, note: the 4.x local_authentication_disabled is gone in 5.x }
     bicep_avm:
       attribute: features.disableLocalAuth
-      values: { true: false, false: true }
-      note: inverse
+      values: { disabled: true, enabled: false }
     bicep:
       attribute: properties.features.disableLocalAuth
-      values: { true: false, false: true }
-      note: inverse
+      values: { disabled: true, enabled: false }
   access.rbac_only_access:
     terraform_avm:
       attribute: log_analytics_workspace_allow_resource_only_permissions

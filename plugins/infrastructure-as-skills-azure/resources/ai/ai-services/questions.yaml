@@ -24,6 +24,7 @@ boundaries:
   - "Does not render the trained content: custom speech and custom vision models, Document Intelligence custom models, Language projects, Translator glossaries - application content that lives in the service or in a storage account the application owns."
   - "Does not create the storage account a kind needs for its training data or batch results, nor grant the account's identity its role on it - wiring between resources, owned by a pattern."
   - "Does not create a commitment tier (reserved capacity) - a purchase with its own lifecycle."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -159,7 +160,7 @@ groups:
           `enabled`, recorded as forced with `network_ownership` as forced_by: the
           deployment's own callers have no fixed outbound address, so a firewall with no
           rule locks them out of this resource. A browser or mobile client calling Speech
-          directly is a named departure to `enabled` with `local_authentication_disabled`
+          directly is a named departure to `enabled` with `local_auth: disabled`
           kept - the client gets a short-lived token from the application, never the key
         why: >
           Asked only as a departure: exposure is a property of the system. `private` is
@@ -290,53 +291,34 @@ groups:
         per_environment: true
         why: The identity must already exist; this set does not create it.
 
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this account?"
-          de: "Wer braucht welche Rolle auf diesem Konto?"
-        type: list
-        plain:
-          en: "Access rights on the account granted to: {value}."
-          de: "Zugriffsrechte auf das Konto vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With keys off, nothing calls the service until a role is assigned, so an empty list
-          is a working account nobody can use, and not an answer: with no consumer named it
-          is an `open:` entry owned by the workload owner, blocking apply. The narrow roles
-          are per kind - `Cognitive Services Speech User`, `Cognitive Services Language
-          Reader`, `Cognitive Services Custom Vision Trainer`, `Cognitive Services Face
-          Recognizer` - and `Cognitive Services User` where a kind has none of its own; a
-          role that can *list keys* has no business in a keyless account. A pattern fills
-          this from the consumers it knows about.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients sign in with the account keys?"
           de: "Dürfen sich Clients mit den Kontoschlüsseln anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in with account keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit Kontoschlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         forced_when: >
           A kind or a feature that accepts no token - checked against the service's
           authentication page before a render, because the list shrinks every release - is
-          named as `local_auth: allowed_where_unavoidable` for this account alone, with the
+          named as `local_auth: enabled` for this account alone, with the
           feature in the reason
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. A key is a bearer credential
+          Inherited from the deployment's `local_auth`. A key is a bearer credential
           for the whole account, is not attributable and pays for whatever it is used for -
           and for Speech it is the credential that ends up in a mobile app. **The modules
           disagree**: Bicep disables keys by default, Terraform's `local_auth_enabled`
-          defaults on, and the Terraform input is the inverse. The client then needs a
+          defaults on and states the switch positively. The client then needs a
           token for the `https://cognitiveservices.azure.com` scope and the account's custom
           subdomain, which is why the subdomain is set.
 

@@ -292,11 +292,11 @@ resources:
         value: disabled
         source: deployment
     security:
-      shared_access_key_enabled:
-        value: false
+      local_auth:
+        value: disabled
         source: deployment
       min_tls_version:
-        value: TLS1_2
+        value: '1.2'
         source: default
     data_protection:
       replication:
@@ -357,6 +357,14 @@ wiring:
     - from: app-service
       to: key-vault
     source: stated
+  # Which application setting reads which secret of a vault of this spec.
+  secrets:
+    value:
+    - app: app-service
+      setting: PAYMENT_API_KEY
+      vault: key-vault
+      secret_name: payment-api-key
+    source: stated
 
 # What nothing could resolve, each with who has to answer it. Applying waits for it.
 open:
@@ -404,7 +412,7 @@ the spec is then either **one value for every stage** (a scalar, a list, a refer
 
 ```yaml
       min_tls_version:  # one value: a literal in the template, the same in every stage
-        value: TLS1_2
+        value: '1.2'
         source: default
       replication:      # a map: a parameter, each stage's value in its stage file
         value:
@@ -615,7 +623,7 @@ on its groups. It is derived, never asked, and recomputed on every run:
 | When the spec has | The identity needs |
 |---|---|
 | A group in `resource_groups_created` | `Contributor` on the subscription |
-| Any `role_assignments` (a resource's or `wiring.`) | `Role Based Access Control Administrator` on the resource group, limited to the roles the spec assigns |
+| An entry in `wiring.role_assignments` | `Role Based Access Control Administrator` on the resource group, limited to the roles the spec assigns |
 | A key vault with `secret_placeholders` | `Key Vault Secrets Officer` on that vault |
 
 `for` names the decisions behind each grant. The same holds for `local` - whoever runs the
@@ -638,7 +646,7 @@ both what kind of source it is and where it points:
 | `stated` | The user said it in their request, before being asked |
 | `asked` | The user answered it in the interview |
 | `platform` | Derived from the landing-zone answers (`landing_zone_exists`, `central_*`), a platform-owned decision the customer was not asked |
-| `pattern` | A pattern skill pre-answered it |
+| `pattern` | The pattern named in `pattern.id` answered it, written by `apply_pattern.py` - see *Patterns and the wiring* |
 | `deployment` | Inherited from the deployment set, via the question's `answer: { deployment: <id> }` |
 | `default` | The question set's opinionated default applied |
 | `carried` | Taken from what the repository already holds without a spec - an existing pipeline, an existing `modules/` layout. A value of this spec keeps its own source on a re-run |
@@ -677,7 +685,7 @@ open:
 
 | Field | Holds |
 |---|---|
-| `key` | Required. The key path the entry stands for (`context.subscription_id`, `deployment.address_space`, `resources.<key>.<group>.<id>`) |
+| `key` | Required. The key path the entry stands for (`context.subscription_id`, `deployment.address_space`, `resources.<key>.<group>.<id>`, `wiring.role_assignments`) |
 | `environments` | The stages still missing, where the value is a stage map; absent means every stage |
 | `question` | What has to be answered, in `context.language` |
 | `owner` | Who answers it, in `context.language` (`Plattform-Team`, `network / IPAM owner`); absent when the person asking is the one to answer |
@@ -703,6 +711,80 @@ reviewer accepting it and reopening the decision from scratch.
         source:
           forced_by: deployment.key_protection  # hsm, from mandate BSI C5
 ```
+
+## Patterns and the wiring
+
+`wiring:` holds what belongs to no single resource, and the root renders it - never a module,
+since only the root sees both ends:
+
+| Key | Entries | Renders as |
+|---|---|---|
+| `access` | `{ from, to, label? }` - a resource of the spec or an actor (`users`, `internet`, `external:<name>`) on each side | The lines of the picture; no code of its own |
+| `role_assignments` | `{ from, to, role }` - who holds the role, the resource it is on, a role of [built-in-roles.yaml](built-in-roles.yaml); see *Role assignments* below | One role assignment at the target's scope, through the target module's `role_assignments` interface or authored - [role-assignments.md](../../iac-rendering/references/role-assignments.md) |
+| `secrets` | `{ app, setting, vault, secret_name }` - an application and a key vault of the spec, the setting's name, a secret the vault's `secret_placeholders` creates | An app setting holding a Key Vault reference (App Service, Function App), or a secret with its Key Vault URL and an environment variable naming it (Container Apps); never a value |
+| `private_dns_zones` | The privatelink zones of the endpoints | See [private-dns-zones.md](../../iac-rendering/references/private-dns-zones.md) |
+
+### Role assignments
+
+**A role is recorded in the wiring and nowhere else.** It is a relationship between two parts
+of a system, and `wiring:` is where relationships live; a resource carries no role decision,
+and `check_spec.py` fails on one. One grant is written once:
+
+```yaml
+wiring:
+  role_assignments:
+    value:
+    - from: app-service__chat              # a resource of the spec: its identity holds the role
+      to: storage-account
+      role: Storage Blob Data Reader
+    - from:                                # a principal outside the spec, as a reference
+        existing: entra_group
+        id:
+          development: 00000000-0000-0000-0000-0000000000d1
+          test: 00000000-0000-0000-0000-0000000000d2
+          production: 00000000-0000-0000-0000-0000000000d3
+      to: key-vault
+      role: Key Vault Secrets Officer
+    source: stated
+```
+
+| Field | Holds |
+|---|---|
+| `from` | A resource key of the spec: the resource whose own identity holds the role - a resource with a system-assigned identity, or the `user-assigned-identity` a resource acts with. Or a principal outside the spec in the reference form of *References*: `{ existing: entra_group }` for people, `{ existing: principal }` for a workload identity (a service principal, an identity another deployment owns), with `id: { <stage>: <object id> }` where the person gave it, else an `open:` entry with the key `wiring.role_assignments` naming who supplies it. Never a name as free text |
+| `to` | A resource key of the spec - the scope of the assignment. A narrower scope is a narrower resource of the spec (a `blob-container`, a `key-vault-secret`), never free text |
+| `role` | A name of [built-in-roles.yaml](built-in-roles.yaml): `roles`, or `data_plane` for Cosmos DB's own role model. The render tells them apart by the role |
+
+**One list holds for every stage.** A role belongs to the system, not to a stage: the list is
+never a stage map, and what differs per stage is only the id of a principal outside the spec.
+
+**A scope that is no resource of the spec is not wiring.** An assignment on a resource group,
+a subscription or a platform resource is a `role-assignment` resource with its own question
+set; the wiring holds relationships between two parts the spec names.
+
+**A consumer nobody named is an `open:` entry**, key `wiring.role_assignments`, with the owner
+who names it. `check_spec.py` warns when a resource whose `local_auth` is `disabled` is reached
+by another resource (`wiring.access`) that holds no role on it and no such entry exists: the
+first call would be refused.
+
+A spec built from a pattern ([pattern-format.md](pattern-format.md)) names it at the top:
+
+```yaml
+pattern:
+  id:
+    value: ai-chat-rag
+    source: stated  # the request described it; asked when the person picked among several
+  answers:
+    sign_in:
+      value: company_accounts
+      source: asked
+```
+
+What the pattern answered - a part's `meta.purpose`, a pre-answer, a wiring list - carries
+`source: pattern`, and `check_spec.py` compares each such value with what the pattern gives
+for the recorded answers. A value the customer changed is `{ overridden: <reason> }`, a
+wiring list they added to or removed from is `stated`; a re-run keeps both, as it keeps any
+carried value. `pattern:` is never removed because a value departed: it still says what the
+rest was built from.
 
 ## `meta`: what a resource is for
 
@@ -1168,7 +1250,8 @@ What it checks is the contract of this file: provenance (a known `source`, an ov
 its reason, a `forced_by` that exists, a `derived_from` naming a deployment answer), the
 key paths and enum values against the question sets, no backend attribute spelling,
 `composition`, stage maps, resource groups and their modes, the context a stage file needs,
-`deployer_roles` and the shape of `wiring.access`. The numbered list in the script's
+`deployer_roles`, the shape of `wiring.access` and every role assignment of the wiring (both
+ends, the role, and that no resource carries one). The numbered list in the script's
 docstring is the complete one; it is kept there so it cannot drift from the code.
 
 The Shape example above is tested: `tests/run_spec_tests.py` lifts it out of this file and

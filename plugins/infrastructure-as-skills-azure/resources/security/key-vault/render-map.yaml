@@ -109,17 +109,6 @@ decisions:
       attribute: properties.networkAcls.ipRules
       note: the item shape is not in the reference (the module's parameter is [ { value } ]); check the API schema - never the plain list
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform:
-      attribute: 'azurerm_role_assignment = { role_definition_name, principal_id, principal_type }'
-      note: 'one per entry, scope = the vault id; role_definition_id instead of the name for a custom role (source: azurerm 5.12 schema)'
-    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments = { properties.principalId, properties.roleDefinitionId, properties.principalType }'
-      note: 'one per entry, scope: the vault; roleDefinitionId is the definition id, never the name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
-
   # ----------------------------------------------------------------- security
   security.enabled_for_services:
     terraform_avm:

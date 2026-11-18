@@ -61,7 +61,7 @@ module key 'br/public:avm/res/key-vault/vault/key:0.1.1' = {
       ]
     }
 
-    // decision: key-vault-key.identity.role_assignments
+    // decision: wiring.role_assignments
     roleAssignments: [
       {
         roleDefinitionIdOrName: 'Key Vault Crypto Service Encryption User'

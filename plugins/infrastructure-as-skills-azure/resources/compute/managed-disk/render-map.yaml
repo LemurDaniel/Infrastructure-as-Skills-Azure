@@ -112,13 +112,6 @@ decisions:
       gap: module README 0.6.1 has no input for a private endpoint; an authored Microsoft.Network/privateEndpoints with group id disks
     bicep: { attribute: Microsoft.Network/privateEndpoints properties.subnet.id, note: group id disks }
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform: { attribute: azurerm_role_assignment, note: scope = the disk's id }
-    bicep_avm: { attribute: roleAssignments }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the disk }
-
   # ----------------------------------------------------------------- security
   security.key_management:
     terraform_avm:

@@ -16,7 +16,7 @@ boundaries:
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not create indexes, indexers, data sources, skillsets or synonym maps - they are data-plane content of the application, not ARM resources."
   - "Does not create shared private link resources to the data sources an indexer reads (storage, Cosmos DB, SQL) - that is wiring between resources, owned by a pattern."
-  - "Does not grant the roles on the services an indexer reads from. `role_assignments` is for who may use this service."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not create a customer-managed key; it records whether the service enforces one."
 
 groups:
@@ -276,46 +276,28 @@ groups:
         per_environment: true
         why: The identity must already exist; this set does not create it.
 
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this service?"
-          de: "Wer braucht welche Rolle auf diesem Dienst?"
-        type: list
-        plain:
-          en: "Access rights on the search service granted to: {value}."
-          de: "Zugriffsrechte auf den Suchdienst vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With keys off, nothing reads or writes an index until a role is assigned, so an
-          empty list is a working service nobody can use, and not an answer: with no
-          consumer named it is an `open:` entry owned by the workload owner, blocking apply.
-          The roles are the narrow ones - `Search Index Data Reader` for a query client,
-          `Search Index Data Contributor` for whatever loads documents, `Search Service
-          Contributor` for whatever manages indexes and indexers. A pattern fills this from
-          the consumers it knows about.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients sign in with API keys?"
           de: "Dürfen sich Clients mit API-Schlüsseln anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in with API keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit API-Schlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. An admin key can read, change
+          Inherited from the deployment's `local_auth`. An admin key can read, change
           and delete every index and cannot be attributed. **The modules disagree**: the Bicep
           module disables keys by default, the Terraform module leaves them on, and
-          Terraform's input is the inverse (`local_authentication_enabled`). A client then
+          Terraform's input states it positively (`local_authentication_enabled`). A client then
           authenticates with a role (`Search Index Data Reader`).
 
       - id: key_management

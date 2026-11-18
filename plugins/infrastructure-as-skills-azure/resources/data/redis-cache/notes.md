@@ -29,6 +29,14 @@ The identity and its role on the Key Vault key (when `key_management: customer_m
 database, then the access-policy assignments, then the consumers. The workspace before the diagnostic setting,
 which sits on the database.
 
+## Roles
+
+A role on the cache is a `wiring.role_assignments` entry with it as `to`. It is Azure RBAC
+on the cluster - the control plane: scaling, changing persistence, reading the access keys
+if they were enabled. It is separate from the data access on purpose, which Redis grants
+through its own access policy assignments. Usually the deploying principal holds these
+alone, and the spec then has no entry for the cache.
+
 ## Pitfalls
 
 **Two permission systems.** Azure RBAC governs the cluster; the database has its own access policy, one named

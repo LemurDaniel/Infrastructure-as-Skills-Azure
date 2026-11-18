@@ -21,6 +21,15 @@ consumers. The workspace before the diagnostic setting. A geo pairing needs both
 and the entities of the secondary **empty**: it is the last step, not part of the first
 apply.
 
+## Roles
+
+A role on the namespace is a `wiring.role_assignments` entry with it as `to`. Data-plane
+access is granted by role, never by key. The narrow roles are `Azure Service Bus Data
+Sender` and `Azure Service Bus Data Receiver`; `Azure Service Bus Data Owner` is for the
+deploying principal and a person, never for a workload. A sender needs only Sender, a
+receiver only Receiver - a workload that does both is two entries, not Owner. Never the
+subscription.
+
 ## Pitfalls
 
 **A private namespace is a Premium namespace.** There is no private endpoint on Basic or

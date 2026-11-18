@@ -57,7 +57,7 @@ module "automation_account" {
 
   # decision: automation-account.networking.public_network_access - disabled renders false
   public_network_access_enabled = false
-  # decision: automation-account.security.local_authentication_disabled - inverse: true renders false
+  # decision: automation-account.security.local_auth - `disabled` is false on the input
   local_authentication_enabled = false
 
   # decision: automation-account.identity.managed_identity
@@ -93,7 +93,7 @@ module "automation_account" {
     }
   }
 
-  role_assignments = {} # decision: automation-account.identity.role_assignments
+  role_assignments = {} # decision: wiring.role_assignments
 
   enable_telemetry = false # deployment.module_telemetry: disabled
   tags             = local.tags
@@ -134,12 +134,12 @@ run "networking" {
 # automation-account.networking.private_endpoint_subnet is asserted with the endpoints: both sit in the endpoint subnet
 # not-testable: automation-account.account.sku - the module has no resource output; read from the plan JSON
 # not-testable: automation-account.networking.public_network_access - as above
-# not-testable: automation-account.security.local_authentication_disabled - as above
+# not-testable: automation-account.security.local_auth - as above
 # not-testable: automation-account.identity.managed_identity - as above
 # not-testable: automation-account.identity.user_assigned_identity_ids - as above
 # not-testable: automation-account.security.key_management - as above
 # not-testable: automation-account.security.cmk_key_vault_key_id - as above
-# not-testable: automation-account.identity.role_assignments - module-internal role assignments; read from the plan JSON
+# not-testable: wiring.role_assignments - module-internal role assignments; read from the plan JSON
 # not-testable: automation-account.observability.diagnostic_workspace - the diagnostic setting is module-internal; read from the plan JSON
 # not-testable: automation-account.observability.diagnostic_categories - as above
 # not-testable: automation-account.observability.metrics_enabled - as above

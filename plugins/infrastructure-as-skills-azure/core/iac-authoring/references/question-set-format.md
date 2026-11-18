@@ -31,7 +31,7 @@ naming:
 # What this resource cannot do, so the skill can hand off instead of improvising.
 boundaries:
   - "Does not create the resource group; expects one (see placement.resource_group)."
-  - "Private DNS zones are shared infrastructure — a pattern skill owns them."
+  - "Private DNS zones are shared infrastructure - the deployment decides who owns them."
 
 groups:
   - id: placement
@@ -105,7 +105,7 @@ states one. `check_question_set.py` fails on a question with none, and on one wi
 |---|---|
 | `default` | The question itself |
 | `answer: { deployment: <id> }` | The answer to the deployment-set question with id `<id>`, taken unchanged - only where this question takes the same values |
-| `answer: { deployment: <id>, map: { <answer>: <value> } }` | The deployment answer translated into this question's values, one entry per deployment answer (`network_exposure: private` → `public_network_access: disabled`; `local_auth: disabled` → `shared_access_key_enabled: false`). Source stays `deployment` |
+| `answer: { deployment: <id>, map: { <answer>: <value> } }` | The deployment answer translated into this question's values, one entry per deployment answer (`network_exposure: private` → `public_network_access: disabled`; `local_auth: allowed_where_unavoidable` → a namespace's `local_auth: enabled`). Source stays `deployment` |
 | `answer: { context: <id> }` | The spec's `context.<id>`: `environments`, `location`, `subscription_id`, `resource_group_name`. Missing, it becomes an `open:` entry |
 | `answer: { question: <id>, map: {...} }` | A customer's answer to a `requirements` question of the deployment set, translated through the map |
 | `parameterized: true` | An input of the rendered code (Terraform `variable`, Bicep `param`), filled per stage from that stage's parameter file (`.tfvars`, `.bicepparam`) |
@@ -357,6 +357,52 @@ Three rules:
 
 Where no table can do the mapping - a mandate is free text, so "GoBD → immutable blobs"
 cannot be a map - the question keeps a default and Phase 4 names the consequence instead.
+
+## Shared vocabulary
+
+A decision that many resources carry has **one id and one set of answers** on every one of
+them, so a spec, a pattern's pre-answer and a reviewer read the same key whatever the
+resource - and `check_question_set.py` holds the sets to it:
+
+| Id | Type and answers | Decides |
+|---|---|---|
+| `local_auth` | `enum`, `accepts: [disabled, enabled]`, `answer: { deployment: local_auth, map: {...} }` | Whether the service's own key or local authentication works beside Entra ID |
+| `min_tls_version` | `enum`, plain version numbers as quoted strings - a subset of `"1.0"`, `"1.1"`, `"1.2"`, `"1.3"` | The lowest TLS version a client may connect with |
+
+The literal a backend takes lives in the set's `render-map.yaml`, never in the answer:
+`local_auth: disabled` is `shared_access_key_enabled = false` on one resource and
+`disableLocalAuth: true` on another, `"1.2"` is `TLS1_2` on a storage account and `TLS12` on a
+Front Door domain, each written as `values:` in the map. An id that is a backend's attribute
+name (`local_authentication_disabled`, `shared_access_key_enabled`,
+`access_keys_authentication_disabled`, `minimum_tls_version`) is refused. A switch that names
+one specific mechanism rather than the service's local authentication as a whole keeps its
+own id (`basic_auth_enabled`, `admin_enabled`, `rbac_authorization`).
+
+A new decision that more than one resource carries follows the same rule: one id, used
+unchanged on every set that has it, and decision words as values - what is decided, not how
+one provider spells or negates it.
+
+## Roles are not a question
+
+**A resource set asks no `role_assignments` and no `data_plane_role_assignments`.** A role is a
+relationship between two parts of a system - who holds it, and on what - so it has two ends
+and belongs to neither: the spec records it once, in `wiring.role_assignments`
+([spec.md](spec.md#role-assignments)), with the resource as `to`. Asked per resource, the same
+grant had two places to stand and each reader looked in the other one.
+
+What a set knows about roles stays with the set, as knowledge rather than as a question:
+
+- `boundaries:` carries the line that roles on this resource are `wiring.role_assignments`
+  entries with it as `to`;
+- `notes.md` carries a section *Roles* - which roles the service has, which is the narrow
+  one, what does not work until one is assigned;
+- `terraform.md` and `bicep.md` carry only what is particular to the resource's module (an
+  input under another name, a module without one); how an entry renders is
+  [role-assignments.md](../../iac-rendering/references/role-assignments.md).
+
+Rights *inside* a service that a statement creates and no Azure role grants - `database_users`,
+`database_roles` - are decisions of that resource and stay questions of its set.
+`check_question_set.py` fails on the two ids.
 
 ## Rules that matter
 

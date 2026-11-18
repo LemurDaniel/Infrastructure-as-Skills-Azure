@@ -1,0 +1,156 @@
+schema_version: 1
+
+id: event-integration
+title:
+  en: "API with asynchronous processing"
+  de: "API mit asynchroner Verarbeitung"
+summary:
+  en: "An API that takes requests in and has them processed in the background: an API gateway, functions, and a queue or events between them."
+  de: "Eine API, die Anfragen annimmt und im Hintergrund verarbeiten lässt: ein API-Gateway, Funktionen und dazwischen eine Warteschlange oder Ereignisse."
+
+selects_when:
+  - "API with a queue / API mit Warteschlange"
+  - "take orders in and process them asynchronously / Bestellungen entgegennehmen und asynchron verarbeiten"
+  - "event-driven integration between systems / ereignisgesteuerte Integration zwischen Systemen"
+  - "API Management in front of functions / API Management vor Funktionen"
+
+boundaries:
+  - "The network, its security groups, the private endpoints with their DNS zones, the Log Analytics workspace and the Application Insights component are not parts: the deployment decisions bring them, as for any system."
+  - "An entry in front of the gateway (Front Door or an Application Gateway with a web application firewall) follows from the deployment's public_audience and public_entry answers; it is not a part."
+  - "The APIs, their operations and policies are the API team's content (api-management.access.apis); the queues and topics are named by the workload (service-bus.entities). The pattern names none of them."
+  - "How the functions authenticate the gateway's calls - a function key or a token check in the code - is the application's; the pattern gives the gateway an identity to call with."
+  - "The storage for undeliverable events (event-grid-topic.delivery.dead_letter_storage_account) is a decision about the workload's data and stays an open item: the functions' host storage must not hold it."
+  - "A private Service Bus needs the Premium tier; the tier follows the exposure and the outage answer in the Service Bus set, not this pattern."
+
+parts:
+  api-management:
+    purpose:
+      en: "API gateway"
+      de: "API-Gateway"
+  function-app__processor:
+    purpose:
+      en: "Functions that take requests in and process them"
+      de: "Funktionen, die Anfragen annehmen und verarbeiten"
+  user-assigned-identity__processor:
+    purpose:
+      en: "Identity of the functions"
+      de: "Identität der Funktionen"
+  storage-account__host:
+    purpose:
+      en: "Working storage of the functions"
+      de: "Arbeitsspeicher der Funktionen"
+  service-bus:
+    when: { ask: message_flow, not_equals: events }
+    purpose:
+      en: "Queue between intake and processing"
+      de: "Warteschlange zwischen Annahme und Verarbeitung"
+  event-grid-topic:
+    when: { ask: message_flow, not_equals: queue }
+    purpose:
+      en: "Events for several receivers"
+      de: "Ereignisse für mehrere Empfänger"
+
+asks:
+  - id: message_flow
+    ask:
+      en: "How is the work passed on - as tasks that exactly one receiver works off, as events that several receivers get to know about, or both?"
+      de: "Wie wird die Arbeit weitergereicht - als Aufgaben, die genau ein Empfänger abarbeitet, als Ereignisse, von denen mehrere Empfänger erfahren, oder beides?"
+    type: enum
+    accepts: [queue, events, both]
+    default: queue
+    resolved_by: interview
+    topic: application
+    plain:
+      en: "Work is passed on {value}."
+      de: "Arbeit wird {value} weitergereicht."
+    plain_values:
+      queue: { en: "as tasks in a queue - each one is worked off by exactly one receiver, and waits if none is free", de: "als Aufgaben in einer Warteschlange - jede wird von genau einem Empfänger abgearbeitet und wartet, wenn keiner frei ist" }
+      events: { en: "as events - every interested receiver gets to know about each one", de: "als Ereignisse - jeder interessierte Empfänger erfährt von jedem" }
+      both: { en: "as tasks in a queue and as events for several receivers", de: "als Aufgaben in einer Warteschlange und als Ereignisse für mehrere Empfänger" }
+    why: >
+      A task and an event are different promises. A queue holds a task until one receiver
+      has finished it, with order, retries and a place for what cannot be processed; an
+      event tells everyone who subscribed that something happened and waits for nobody.
+      The answer picks the messaging part - a queue costs a namespace, events a topic -
+      and the rights the functions need on it.
+
+pre_answers:
+  api-management:
+    managed_identity:
+      value: system_assigned
+      why: >
+        The gateway calls the functions with its own identity instead of a shared key in a
+        policy; a gateway without an identity can only carry a secret along.
+  function-app__processor:
+    managed_identity:
+      value: user_assigned
+      why: >
+        The functions need their roles on the host storage and the queue before the app
+        exists - a system-assigned identity is created with the app and its first start
+        would fail on storage it may not read yet.
+    user_assigned_identity_ids:
+      value: [{ resource: user-assigned-identity__processor }]
+      why: >
+        The one identity of this system's functions: every role below is granted to it,
+        and the function app acts with nothing else.
+    host_storage_account:
+      value: { resource: storage-account__host }
+      why: >
+        The host keeps its keys, timer locks and the deployment package in a storage
+        account of its own; the workload's data never shares it, because the host writes
+        to it constantly.
+  user-assigned-identity__processor:
+    purpose:
+      value: "the function app's access to its host storage and the messaging between the system's parts"
+      why: >
+        The identity must hold its roles before the function app exists, which is the
+        guardrails' reason for a user-assigned identity; recording it keeps the identity
+        from being reused for something else.
+  event-grid-topic:
+    event_subscriptions:
+      value:
+        - { name: processor, target: function-app__processor }
+      why: >
+        The functions are the one receiver this system knows; a topic without a
+        subscription drops every event silently. Further receivers are added by the
+        customer, with their filters.
+
+wiring:
+  access:
+    - from: users
+      to: api-management
+      label: { en: "HTTPS 443", de: "HTTPS 443" }
+    - from: api-management
+      to: function-app__processor
+      label: { en: "forwards the requests", de: "leitet die Anfragen weiter" }
+    - from: function-app__processor
+      to: storage-account__host
+      label: { en: "working storage", de: "Arbeitsspeicher" }
+    - from: function-app__processor
+      to: service-bus
+      label: { en: "puts tasks in and works them off", de: "stellt Aufgaben ein und arbeitet sie ab" }
+      when: { ask: message_flow, not_equals: events }
+    - from: function-app__processor
+      to: event-grid-topic
+      label: { en: "publishes events", de: "veröffentlicht Ereignisse" }
+      when: { ask: message_flow, not_equals: queue }
+    - from: event-grid-topic
+      to: function-app__processor
+      label: { en: "delivers events", de: "stellt Ereignisse zu" }
+      when: { ask: message_flow, not_equals: queue }
+
+  role_assignments:
+    - { from: user-assigned-identity__processor, to: storage-account__host, role: Storage Blob Data Owner }
+    - { from: user-assigned-identity__processor, to: storage-account__host, role: Storage Table Data Contributor }
+    - from: user-assigned-identity__processor
+      to: service-bus
+      role: Azure Service Bus Data Sender
+      when: { ask: message_flow, not_equals: events }
+    - from: user-assigned-identity__processor
+      to: service-bus
+      role: Azure Service Bus Data Receiver
+      when: { ask: message_flow, not_equals: events }
+    - from: user-assigned-identity__processor
+      to: event-grid-topic
+      role: EventGrid Data Sender
+      when: { ask: message_flow, not_equals: queue }

@@ -6,6 +6,11 @@
 > **AI disclaimer:** Yes, an AI helped write this, and yes, an AI is the one doing the interviewing. No, it does not get to `terraform apply`. Every decision it makes is written down with where it came from, and every render ships with a test per decision. 🤖
 
 > [!IMPORTANT]
+> **The plugin's scripts need Python 3.9+ with PyYAML** (`pip install pyyaml`). They lay out
+> and check the spec, draw the diagram and write the decision document. Without them the
+> interview still runs, but the spec is unvalidated and no diagram is drawn.
+
+> [!IMPORTANT]
 > **This plugin requires [draw.io desktop](https://github.com/jgraph/drawio-desktop/releases).** The architecture diagram is exported to `infra-diagram.drawio.png` with it (`winget install JGraph.Draw`, `brew install --cask drawio`). Without it you get the editable `.drawio` file only, no PNG, and the diagram review has nothing to look at.
 
 > [!TIP]
@@ -97,7 +102,7 @@ What a run leaves behind, from the [`chat-sandbox`](examples/chat-sandbox/) exam
 | [`core/iac-rendering`](plugins/infrastructure-as-skills-azure/core/iac-rendering/SKILL.md) | Spec to Terraform or Bicep: the AVM contract, naming, idiom per target, pipelines, `check_render_coverage.py` and `check_pipeline.py`. |
 | [`core/iac-diagram`](plugins/infrastructure-as-skills-azure/core/iac-diagram/SKILL.md) | Spec to an editable draw.io diagram with embedded source. |
 | `resources/<family>/` | The knowledge. Not skills: one `routing.md` per family, one directory per resource. |
-| `patterns/` | Compositions of resources with the wiring between them. **Planned, not yet present.** |
+| [`patterns/`](plugins/infrastructure-as-skills-azure/patterns/routing.md) | Whole systems. Not skills: one `routing.md`, one `pattern.yaml` per system - its parts, the questions only it asks, what it answers in the parts' sets, and the wiring between them (roles, secret references, connections). Four so far: `ai-chat-rag`, `private-webapp`, `event-integration`, `container-microservices`. |
 
 ### Resource coverage
 
@@ -255,7 +260,7 @@ Fifty Azure resources at one skill each would spend the whole budget at once. On
 "skills": ["./core/"]
 ```
 
-It sits beside `skills/`, not inside it, because the default scan cannot be switched off. `resources/` is deliberately **not** declared: nothing in it is a skill, so nothing in it costs budget. A declared path that does not exist fails to load the plugin, which is why `./patterns/` is not listed yet.
+It sits beside `skills/`, not inside it, because the default scan cannot be switched off. `resources/` is deliberately **not** declared: nothing in it is a skill, so nothing in it costs budget. `patterns/` is not declared either, for the same reason: a pattern is data read through its routing table, and a skill per pattern would overflow the budget at the second.
 
 ## 📚 Examples
 
@@ -303,7 +308,7 @@ Early, and the shape matters more than the coverage. The eval suite runs on Sonn
 - [x] Diagram from the spec, editable draw.io embedded in the PNG
 - [x] Checks: `check_spec.py`, `check_question_set.py`, `check_render_coverage.py`, `check_pipeline.py`
 - [x] Eval suite with a baseline
-- [ ] **Reference pattern skill.** `patterns/` is empty, so composition is specified but unproven
+- [x] **Patterns.** Four systems as data (`patterns/<id>/pattern.yaml`), checked in every variant their questions produce: each gives a spec `check_spec.py` accepts and a picture with every part and connection. Not yet seen in a paid eval run or rendered to code
 - [x] **An applied render.** [`eval-agent/`](eval-agent/) - rendered Bicep from an `infra-spec.yaml`, what-if, approval and deploy through the rendered GitHub pipeline (OIDC, no secret). The first run found what the pipeline reference now says: a job without a checkout, a what-if that skips modules, immutable OIDC subjects. One spec override came from a quota, not from the interview. Terraform and the other pipelines are still unapplied
 - [x] A complex case in Bicep: a chat app with RAG (Front Door with WAF, App Service with a slot, Foundry, AI Search, storage, private endpoints), every decision covered by ARM tests, beside [`eval-agent/`](eval-agent/)
 - [ ] Remaining resources: further network, data and AI services - listed in `PROGRESS.md`

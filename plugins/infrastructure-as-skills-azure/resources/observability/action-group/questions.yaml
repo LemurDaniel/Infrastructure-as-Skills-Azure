@@ -16,6 +16,7 @@ boundaries:
   - "Does not create the receivers' targets: the Function App, Logic App, Event Hub, Automation runbook or ITSM connection a receiver calls exists before the group and is referenced by id. The receivers' secrets (function keys, callback URLs) are read from those resources at render, never written into the spec."
   - "Does not grant Azure Monitor access to a secure webhook's Entra application - that consent is a Microsoft Graph operation outside the template (see the notes)."
   - "Does not confirm e-mail or SMS receivers. Azure sends a confirmation to each address; until it is accepted the receiver is silent and nothing in the template says so."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -327,24 +328,3 @@ groups:
           noisy week. It is a runtime state that the stage's parameter file flips, never a
           literal in the template; a group left disabled is the classic reason an outage
           went unnoticed, so the decision document shows it.
-
-  # ----------------------------------------------------------------- identity
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who may change this group?"
-          de: "Wer darf diese Gruppe ändern?"
-        type: list
-        plain:
-          en: "Access rights on the group granted to: {value}."
-          de: "Zugriffsrechte auf die Gruppe vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Whoever can edit the group can redirect every alert of the deployment, so the
-          rights stay with the operations team: `Monitoring Contributor` to edit receivers,
-          `Monitoring Reader` to see them. Empty means the inherited rights of the resource
-          group apply, which is right where the observability group is the operations
-          team's. A pattern fills it; nothing here grants a role elsewhere.

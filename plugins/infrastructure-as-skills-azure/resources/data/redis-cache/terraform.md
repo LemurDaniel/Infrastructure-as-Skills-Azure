@@ -90,7 +90,7 @@ The module has no input for the database's access-key switch or its persistence,
 setting; the first two are one update of the database it created, the third a resource on its id:
 
 ```hcl
-# decision: redis-cache.security.access_keys_authentication_disabled
+# decision: redis-cache.security.local_auth
 # decision: redis-cache.data_protection.persistence - disabled: a cache is rebuilt from its source
 resource "azapi_update_resource" "database" {
   type        = "Microsoft.Cache/redisEnterprise/databases@2025-07-01"

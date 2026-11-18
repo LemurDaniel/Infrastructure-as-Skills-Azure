@@ -60,7 +60,7 @@ module speech 'br/public:avm/res/cognitive-services/account:0.19.1' = {
 
     // decision: ai-services.identity.managed_identity - none; `{ systemAssigned: true }` once it reaches storage or search
     managedIdentities: {}
-    // decision: ai-services.security.local_authentication_disabled
+    // decision: ai-services.security.local_auth
     disableLocalAuth: true
     roleAssignments: roleAssignments
 

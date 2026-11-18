@@ -19,6 +19,13 @@ already be effective: a role granted at the same apply is usually not yet, and t
 like a bad image. The workspace before the group, because the logging configuration is part of its
 creation.
 
+## Roles
+
+A role on the container group is a `wiring.role_assignments` entry with it as `to`. It is
+Azure RBAC on the group - the control plane, including who may read its logs and run `az
+container exec`, which opens a shell in the running container. Usually the deploying
+principal holds these alone, and the spec then has no entry for the group.
+
 ## Pitfalls
 
 **A public group has no network controls.** No firewall, no network security group, no private

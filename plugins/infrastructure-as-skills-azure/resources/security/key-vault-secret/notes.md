@@ -29,6 +29,17 @@ The vault, the writer's role on it (a data-plane write needs it; see `key-vault/
 secret, then the roles on the secret, then the consumer that references it. A reference to a
 secret that does not exist yet fails at the consumer's start: the placeholder exists for that.
 
+## Roles
+
+A role on one secret is a `wiring.role_assignments` entry with this secret resource as `to`
+- scoped to the secret (its versionless id), the narrowest scope RBAC offers: `Key Vault
+Secrets User` for the application that reads it, `Key Vault Secrets Officer` for the person
+or process that writes the real value into a placeholder.
+
+The writer is the identity that makes the placeholder meaningful, and without it the slot
+stays a dummy: when nobody is named, it is an `open:` entry (key `wiring.role_assignments`)
+owned by the workload owner.
+
 ## Pitfalls
 
 **A placeholder written without the guard is a destroyed secret.** The AVM modules for a secret

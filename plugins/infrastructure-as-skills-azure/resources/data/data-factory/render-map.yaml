@@ -211,11 +211,6 @@ decisions:
       note: "an object keyed by id, built from the list (source: bicep build, Microsoft.DataFactory/factories@2018-06-01)"
   identity.source_access:
     not_rendered: role assignments on each source with the factory's principal id - rendered beside the source; not an input of either module
-  identity.role_assignments:
-    terraform_avm: { attribute: role_assignments, note: control plane }
-    terraform: { attribute: azurerm_role_assignment }
-    bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments }
 
   # ----------------------------------------------------------------- security
   security.key_management:

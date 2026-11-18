@@ -17,6 +17,14 @@ e-mail or SMS receiver is created `NotActivated`, Azure sends a confirmation, an
 is accepted the receiver is silent. The template cannot see that state and never will;
 the handover says who confirms it.
 
+## Roles
+
+A role on the action group is a `wiring.role_assignments` entry with it as `to`. Whoever can
+edit the group can redirect every alert of the deployment, so the rights stay with the
+operations team: `Monitoring Contributor` to edit receivers, `Monitoring Reader` to see
+them. Without an entry the inherited rights of the resource group apply, which is right
+where the observability group is the operations team's.
+
 ## Pitfalls
 
 **A person's address is the wrong answer to the one required question.** `on_call_email` is

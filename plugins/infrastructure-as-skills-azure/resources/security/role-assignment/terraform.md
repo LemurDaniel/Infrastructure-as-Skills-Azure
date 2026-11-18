@@ -2,8 +2,9 @@
 
 Mapping from the question set to a standalone assignment. General layout, variables and tagging are
 in [../../../core/iac-rendering/references/terraform-idiom.md](../../../core/iac-rendering/references/terraform-idiom.md).
-Which assignments come here and which go through a module's `role_assignments` interface is
-decided in [notes.md](notes.md#interface-or-standalone).
+Which assignments are a resource of this set and which are `wiring.role_assignments` entries is
+decided in [notes.md](notes.md#wiring-or-this-set); a wiring entry that stands alone in the root
+renders as [role-assignments.md](../../../core/iac-rendering/references/role-assignments.md) says.
 
 ## With the AVM module
 

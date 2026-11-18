@@ -17,8 +17,26 @@ app setting (`APPLICATIONINSIGHTS_CONNECTION_STRING`) - a reference, not a secre
 template; with local authentication off the string alone is not enough to send: the
 application's identity holds `Monitoring Metrics Publisher` on the component and its
 `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` is `Authorization=AAD` (system-assigned) or
-`Authorization=AAD;ClientId=<client id>` (user-assigned). Settings and role are rendered with
-the application; only the code that reads them is the application's.
+`Authorization=AAD;ClientId=<client id>` (user-assigned). The settings are rendered with the
+application and the role as wiring (*Roles*); only the code that reads them is the
+application's.
+
+## Roles
+
+A role on the component is a `wiring.role_assignments` entry with it as `to`. With local
+authentication off, an application sends telemetry only with an Entra token, so its identity
+needs `Monitoring Metrics Publisher` on the component, and its
+`APPLICATIONINSIGHTS_AUTHENTICATION_STRING` setting tells the agent to use that identity; an
+application still on the instrumentation key loses its telemetry the moment the switch is
+turned.
+
+The entry is forced, never asked: `deployment.application_monitoring: enabled` with
+`local_auth: disabled` gives every application whose `application_insights` names this
+component an entry `{ from: <the application or its user-assigned identity>, to: <this
+component>, role: Monitoring Metrics Publisher }`.
+
+People who read the data need `Monitoring Reader` on the component, or a role on the
+workspace.
 
 ## Pitfalls
 

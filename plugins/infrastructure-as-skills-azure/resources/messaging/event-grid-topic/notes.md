@@ -15,6 +15,17 @@ the delivery identity **on each target**, then the subscriptions (a subscription
 against its target when created, so the role and the target must exist first), then the
 publishers and their publish role. The workspace before the diagnostic setting.
 
+## Roles
+
+A role on the topic is a `wiring.role_assignments` entry with it as `to`. Data-plane access
+is granted by role, never by key, and an entry on the topic says who may publish: the
+publisher role is `EventGrid Data Sender`. `EventGrid Contributor` manages topics and
+subscriptions and is for the deploying principal, never for a workload. Never the
+subscription.
+
+A delivery target is granted on the *target*: an entry with the topic as `from` and the
+target as `to`.
+
 ## Pitfalls
 
 **A topic with no subscription drops every event.** The publish succeeds and nothing happens.

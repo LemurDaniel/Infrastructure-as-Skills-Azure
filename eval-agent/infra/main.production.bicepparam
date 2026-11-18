@@ -33,8 +33,8 @@ param subnets = [
 param privateEndpointSubnetPrefix = '10.100.0.0/27'
 // resources.container-registry.registry.geo_replicas
 param registryGeoReplicas = []
-// resources.<resource>.identity.role_assignments - none on the resources themselves; the roles
-// of the app identity are wiring.role_assignments and live in main.bicep.
+// wiring.role_assignments - none through the modules' own parameters; the roles
+// of the app identities are rendered in main.bicep.
 param identityRoleAssignments = []
 param registryRoleAssignments = []
 param foundryRoleAssignments = []

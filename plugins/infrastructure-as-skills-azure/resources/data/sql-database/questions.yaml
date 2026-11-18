@@ -20,6 +20,7 @@ boundaries:
   - "Does not create database users or grant database roles: that is T-SQL, not Azure Resource Manager. They are recorded as a decision and executed by a step after the deployment."
   - "Does not create a failover group or a geo-secondary server. A second region is a second instance of this set plus the failover group; `critical` records it as an open entry."
   - "Does not render long-term-retention immutability, ledger databases, Always Encrypted enclaves, elastic jobs, or a sample/import/restore create mode."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -409,7 +410,7 @@ groups:
           this customer's; it defeats the firewall it sits in. Off by default; a consumer
           that needs it is named and gets a specific rule, or a private endpoint.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which is the oldest TLS version the server accepts?"
           de: "Welche ist die älteste TLS-Version, die der Server annimmt?"
@@ -510,37 +511,23 @@ groups:
           least privilege first (`db_datareader`, `db_datawriter`, never `db_owner`). A
           pattern fills this from the consumers it knows.
 
-      - id: role_assignments
-        ask:
-          en: "Who may manage the server itself?"
-          de: "Wer darf den Server selbst verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the server granted to: {value}."
-          de: "Verwaltungsrechte am Server vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the server - the control plane: creating databases, changing
-          firewall rules, reading the audit settings. Separate from the database roles on
-          purpose, and usually the deploying principal's alone, so empty is a normal answer.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients sign in with a SQL user name and password?"
           de: "Dürfen sich Clients mit einem SQL-Benutzernamen und Passwort anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in with a SQL password is {value}; access goes through company accounts."
           de: "Die Anmeldung mit SQL-Kennwort ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
           Inherited: `local_auth: disabled` renders as Entra-only authentication. A SQL
           login is a password that does not expire, is shared, and is not attributable in

@@ -56,7 +56,7 @@ module secret 'br/public:avm/res/key-vault/vault/secret:0.1.1' = {
     // decision: key-vault-secret.security.expiry_days
     attributesExp: expiry
 
-    // decision: key-vault-secret.identity.role_assignments
+    // decision: wiring.role_assignments
     roleAssignments: [
       {
         roleDefinitionIdOrName: 'Key Vault Secrets User'

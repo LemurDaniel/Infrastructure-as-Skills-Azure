@@ -48,6 +48,7 @@ import rg_roles  # noqa: E402 - the role table per scheme (deployment.resource_g
 sys.path.insert(0, HERE)
 import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
 import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
+import pattern_lib  # noqa: E402 - the pattern a spec names, for its title and its asks
 
 LABELS = {
     'en': {
@@ -58,6 +59,14 @@ LABELS = {
         'context': 'The system', 'stages': 'What differs between the stages',
         'stages_intro': 'One code base is deployed through these stages; everything not listed here is identical in every stage.',
         'stage_file': 'in stage', 'savings': 'cheaper outside production',
+        'pattern': 'Built from the pattern "{title}": {summary}',
+        'connections': 'Who reaches what',
+        'connections_intro': 'The connections between the parts, the rights each one holds on another, and where a secret is read from.',
+        'c_access': 'Connections', 'c_roles': 'Rights', 'c_secrets': 'Secrets',
+        'c_role': '{who} holds the role *{role}* on {what}',
+        'p_entra_group': 'A group of people outside this deployment', 'p_principal': 'An identity outside this deployment',
+        'c_secret': '{app} reads the secret `{secret}` from {vault} (setting `{setting}`); its value is never in the code',
+        'actors': {'users': 'Users', 'internet': 'Internet'},
         'answers': 'What follows from your answers',
         'answered': 'your answer', 'stated': 'from your description', 'assumed_default': 'not said, so the usual answer applies',
         'carried': 'as decided earlier',
@@ -94,6 +103,14 @@ LABELS = {
         'context': 'Das System', 'stages': 'Was sich zwischen den Stufen unterscheidet',
         'stages_intro': 'Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in jeder Stufe gleich.',
         'stage_file': 'in Stufe', 'savings': 'außerhalb der Produktion günstiger',
+        'pattern': 'Aufgebaut nach dem Muster „{title}“: {summary}',
+        'connections': 'Wer greift worauf zu',
+        'connections_intro': 'Die Verbindungen zwischen den Teilen, die Rechte, die ein Teil auf einem anderen hat, und woher ein Geheimnis gelesen wird.',
+        'c_access': 'Verbindungen', 'c_roles': 'Rechte', 'c_secrets': 'Geheimnisse',
+        'c_role': '{who} hat die Rolle *{role}* auf {what}',
+        'p_entra_group': 'Eine Personengruppe außerhalb dieses Deployments', 'p_principal': 'Eine Identität außerhalb dieses Deployments',
+        'c_secret': '{app} liest das Geheimnis `{secret}` aus {vault} (Einstellung `{setting}`); der Wert steht nie im Code',
+        'actors': {'users': 'Benutzer', 'internet': 'Internet'},
         'answers': 'Was aus euren Antworten folgt',
         'answered': 'eure Antwort', 'stated': 'aus eurer Beschreibung', 'assumed_default': 'nicht gesagt, daher gilt die übliche Antwort',
         'carried': 'wie früher entschieden',
@@ -210,8 +227,8 @@ class Renderer:
                 return f"{value['part']} ({value['resource']})" if value.get('part') else str(value['resource'])
             return spec_ref.label(value) or self.L['existing']
         if isinstance(value, dict):
-            # a role granted to a principal, a subnet handed to a service, a role on a scope: pairs read as "who (what)"
-            for who, what in (('principal', 'role'), ('subnet', 'service'), ('role', 'scope')):
+            # a subnet handed to a service, a role on a scope: pairs read as "who (what)"
+            for who, what in (('subnet', 'service'), ('role', 'scope')):
                 if who in value and what in value:
                     return f"{value[who]} ({value[what]})"
             if 'name' in value:
@@ -321,6 +338,20 @@ def main():
         if src is not None and key in src and key in dep_q and not R.is_stage_map(src[key]):
             w(f"- {R.line(dep_q[key][1], src[key])}")   # per-stage values follow in their own section
     w('')
+
+    # --- the pattern the system is built from ------------------------------------
+    pattern_node = spec.get('pattern') if isinstance(spec.get('pattern'), dict) else {}
+    pattern_id = (pattern_node.get('id') or {}).get('value') if isinstance(pattern_node.get('id'), dict) else None
+    pattern_doc = pattern_lib.load(yaml, str(pattern_id)) if pattern_id in pattern_lib.pattern_ids() else None
+    if isinstance(pattern_doc, dict):
+        w(L['pattern'].format(title=pattern_lib.wording(pattern_doc.get('title'), lang),
+                              summary=pattern_lib.wording(pattern_doc.get('summary'), lang)))
+        w('')
+        asks = {a.get('id'): a for a in (pattern_doc.get('asks') or []) if isinstance(a, dict)}
+        for aid, d in (pattern_node.get('answers') or {}).items():
+            if aid in asks and isinstance(d, dict) and 'value' in d:
+                w(f"- {R.line(asks[aid], d['value'])}")
+        w('')
 
     # --- the resource groups -----------------------------------------------------
     def dval(qid):
@@ -549,11 +580,66 @@ def main():
             w(f"- {line} (`{key}`)")
         w('')
 
+    # --- the wiring: who reaches what ---------------------------------------------
+    wiring = spec.get('wiring') if isinstance(spec.get('wiring'), dict) else {}
+
+    def part(key):
+        # A resource by what it is for, else by its set's title; an actor by its name.
+        key = str(key)
+        if key in L['actors']:
+            return L['actors'][key]
+        if key.startswith('external:'):
+            return key.split(':', 1)[1]
+        purpose = ((resources.get(key) or {}).get('meta') or {}).get('purpose') if isinstance(resources.get(key), dict) else None
+        text = purpose.get('value') if isinstance(purpose, dict) else None
+        return text if isinstance(text, str) and text else (titles.get(key) or titles.get(key.split('__')[0]) or key)
+
+    def wiring_lines(section):
+        d = wiring.get(section)
+        v = d.get('value') if isinstance(d, dict) else None
+        return [x for x in v if isinstance(x, dict)] if isinstance(v, list) else []
+
+    def wiring_words(section):
+        if section == 'access':
+            return [f"{part(a.get('from'))} → {part(a.get('to'))}" + (f": {a['label']}" if a.get('label') else '')
+                    for a in wiring_lines('access')]
+        if section == 'role_assignments':
+            # `from` is a resource of the spec, or a principal outside it as { existing: <kind> }
+            def who(src):
+                if isinstance(src, dict):
+                    return L.get('p_' + str(src.get('existing')), L['p_principal'])
+                return part(src)
+            return [L['c_role'].format(who=who(r.get('from')), role=r.get('role'), what=part(r.get('to')))
+                    for r in wiring_lines('role_assignments')]
+        if section == 'secrets':
+            return [L['c_secret'].format(app=part(x.get('app')), secret=x.get('secret_name'), vault=part(x.get('vault')),
+                                         setting=x.get('setting')) for x in wiring_lines('secrets')]
+        return []
+
+    sections = [(L[label], wiring_words(section)) for section, label in
+                (('access', 'c_access'), ('role_assignments', 'c_roles'), ('secrets', 'c_secrets'))]
+    if any(lines for _, lines in sections):
+        w(f"## {L['connections']}")
+        w('')
+        w(L['connections_intro'])
+        w('')
+        for heading, lines in sections:
+            if lines:
+                w(f"**{heading}**")
+                w('')
+                for line in lines:
+                    w(f"- {line}")
+                w('')
+
     # --- appendix --------------------------------------------------------------
     w(f"## {L['appendix']}")
     w('')
     w(f"| {L['key']} | {L['value']} | {L['source']} |")
     w('|---|---|---|')
+
+    def source_word(src):
+        # sources are flattened to their kind when the spec is loaded (flat_sources)
+        return L['sources'].get(src, src)
 
     def cell(v):
         # A reference reads as its label (the part, the resource, the existing one's name), as in the body.
@@ -574,7 +660,13 @@ def main():
                     w(f"| `{res}.{gid}.{qid}` | {cell(d['value'])} | {L['sources'].get(d.get('source'), d.get('source'))} |")
     for key, d in (spec.get('wiring') or {}).items():
         if isinstance(d, dict) and 'value' in d:
-            w(f"| `wiring.{key}` | {cell(d['value'])} | {L['sources'].get(d.get('source'), d.get('source'))} |")
+            words = wiring_words(key)   # a wiring list reads as its lines, never as raw JSON
+            shown = '; '.join(words).replace('|', '\\|') if words else cell(d['value'])
+            w(f"| `wiring.{key}` | {shown} | {source_word(d.get('source'))} |")
+    for aid, d in ([('id', pattern_node.get('id'))] + [(f'answers.{a}', x) for a, x in (pattern_node.get('answers') or {}).items()]
+                   if pattern_node else []):
+        if isinstance(d, dict) and 'value' in d:
+            w(f"| `pattern.{aid}` | {cell(d['value'])} | {source_word(d.get('source'))} |")
     w('')
 
     target = args.out or os.path.join(os.path.dirname(os.path.abspath(args.spec)), 'infra-decisions.md')

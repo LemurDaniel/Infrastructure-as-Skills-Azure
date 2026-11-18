@@ -18,6 +18,7 @@ boundaries:
   - "Does not create the Key Vault or the key a customer-managed key points at, nor the identity that unwraps it - those are the security family's."
   - "Does not size or tune a container's indexing policy, and does not render stored procedures, triggers or user-defined functions - application code, not infrastructure."
   - "Does not create Synapse Link, the dedicated gateway or a vCore/MongoDB cluster (`Microsoft.DocumentDB/mongoClusters` is a different resource)."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -398,61 +399,25 @@ groups:
         per_environment: true
         why: The identity must already exist; this set does not create it.
 
-      - id: data_plane_role_assignments
-        ask:
-          en: "Who needs to read or write the data?"
-          de: "Wer muss die Daten lesen oder schreiben?"
-        type: list
-        plain:
-          en: "Access to the data itself granted to: {value}."
-          de: "Zugriff auf die Daten selbst vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          **Cosmos DB's data access is its own role system**, separate from Azure RBAC: the
-          roles `Cosmos DB Built-in Data Reader` and `Built-in Data Contributor` are
-          assigned on the account with `sqlRoleAssignments`, and an Azure `Contributor` or
-          `Owner` role does not read a single item. With local authentication off, nothing
-          reads the data until one is assigned, so an empty list is a working account nobody
-          can use, and not an answer: with no consumer named, the decision is an `open:`
-          entry owned by the workload owner, blocking apply. Scope to the database or
-          container where the consumer allows it, never wider. A pattern fills this from the
-          consumers it knows.
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage the account itself?"
-          de: "Wer darf das Konto selbst verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the account granted to: {value}."
-          de: "Verwaltungsrechte am Konto vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the account - the control plane: creating databases, changing
-          throughput, reading keys if they were enabled. Separate from the data roles above
-          on purpose, and usually the deploying principal's alone, so empty is a normal
-          answer.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients sign in with the account keys?"
           de: "Dürfen sich Clients mit den Kontoschlüsseln anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in with account keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit Kontoschlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. An account key is a root
+          Inherited from the deployment's `local_auth`. An account key is a root
           credential for every database in the account, does not expire and is not
           attributable. It cannot be combined with the data roles above in the same client
           without the client choosing one, which is why the roles come first. Both modules

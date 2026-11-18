@@ -22,6 +22,18 @@ machine, then the backup protection and the shutdown schedule. The role for the 
 is a role *on* the machine and needs the machine first; the first login is possible only after
 the role has propagated, which can take minutes.
 
+## Roles
+
+A role on the machine is a `wiring.role_assignments` entry with it as `to`. With
+`entra_login` on, nobody can log in until one exists: `Virtual Machine Administrator Login`
+for the people who administer, `Virtual Machine User Login` for the rest, on the machine and
+given to groups (`from: { existing: entra_group }`), never to a person. A machine with Entra
+sign-in and no such entry works and nobody can enter it: with no one named it is an `open:`
+entry (key `wiring.role_assignments`) owned by the workload owner, blocking apply.
+
+A role the machine's identity needs elsewhere (Key Vault secrets, storage data) is an entry
+with the machine (or its user-assigned identity) as `from`.
+
 ## Pitfalls
 
 **The modules disagree on defaults.** Encryption at host (Terraform on, Bicep off), and

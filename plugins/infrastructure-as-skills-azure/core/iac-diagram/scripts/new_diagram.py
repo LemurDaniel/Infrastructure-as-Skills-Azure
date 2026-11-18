@@ -21,8 +21,8 @@ Compute sits in the subnet it integrates with. Every private endpoint of the
 deployment is one bundled icon in the endpoint subnet - one per resource drew a
 column nobody could read. PaaS services sit in their own zone below the network,
 because a PaaS service is not in the VNet, its endpoint is. The lines are access:
-wiring.access (who calls whom), plus a line per role assignment, plus the
-internet when the deployment is public. Diagnostics are one note in the
+wiring.access (who calls whom), plus the internet when the deployment is public;
+a role assignment (wiring.role_assignments) is a line of text on its target's label. Diagnostics are one note in the
 monitoring zone, not a line per resource. Referenced (existing) things are grey
 and dashed; a resource's meta.purpose puts what it is for on its label.
 
@@ -47,15 +47,9 @@ from xml.sax.saxutils import escape as _xml_escape
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN_RESOURCES = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'resources'))
 
-COLORS = {'green': '32', 'red': '31', 'yellow': '33'}
-USE_COLOR = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
-
-
-def say(text, color=None):
-    if color and USE_COLOR:
-        print(f"\033[{COLORS[color]}m{text}\033[0m")
-    else:
-        print(text)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'lib'))
+import plugin_lib  # noqa: E402 - the printer, the paths and the set lookup every script shares
+say = plugin_lib.say
 
 
 def esc(s):
@@ -435,7 +429,7 @@ def icon_style(img, flagged, existing):
 
 
 def has_question_set(key):
-    return bool(glob.glob(os.path.join(PLUGIN_RESOURCES, '*', key, 'questions.yaml')))
+    return plugin_lib.set_path(key) is not None
 
 
 def pitch_of(label):
@@ -645,7 +639,15 @@ def main():
         if name and name != pe_subnet_name:
             other_subnets.append({'name': name, 'prefix': prefix})
 
-    roles = [r for r in as_list(get_decision(spec, ['wiring', 'role_assignments'])) if isinstance(r, dict)]
+    # Roles are wiring only: { from, to, role }. A principal outside the spec is a reference
+    # ({ existing: entra_group }); the label names its kind, the id says nothing to a reader.
+    roles = []
+    for r in as_list(get_decision(spec, ['wiring', 'role_assignments'])):
+        if isinstance(r, dict):
+            who = r.get('from')
+            if isinstance(who, dict):
+                who = s(who.get('existing')).replace('_', ' ')
+            roles.append(dict(r, **{'from': who}))
     zones = [z for z in as_list(get_decision(spec, ['wiring', 'private_dns_zones'])) if z]
     purposes = {k: get_decision(r, ['meta', 'purpose']) for k, r in (spec.get('resources') or {}).items()
                 if isinstance(r, dict)}
@@ -686,13 +688,7 @@ def main():
             seen.add((s(a['from']), s(a['to'])))
     # A role assignment is no line of its own: the target's label carries `<- principal: role`
     # (role_lines below). Its line was routed by draw.io without waypoints and ran through icons
-    # and titles (found 2026-10-25); an actor as the principal has no label to carry it, so only
-    # those still get a line.
-    for ra in roles:
-        pair = (s(ra.get('from')), s(ra.get('to')))
-        if pair not in seen and (pair[0] in ('internet', 'users') or pair[0].startswith('external:')):
-            access.append({'from': pair[0], 'to': pair[1], 'label': ''})
-            seen.add(pair)
+    # and titles. A principal outside the spec has no icon to start a line from either.
     if exposure == 'public' and not any(a['from'] == 'internet' for a in access):
         for k in (compute or paas):
             access.append({'from': 'internet', 'to': k, 'label': 'HTTPS'})
@@ -779,17 +775,6 @@ def main():
     for ra in roles:
         if s(ra.get('to')) in resources:
             role_lines.setdefault(s(ra.get('to')), []).append(f"{s(ra.get('from'))}: {s(ra.get('role'))}")
-    # The same on the resource itself: resources.<r>.identity.role_assignments, a list of
-    # { principal, role } (per stage or one list). Every principal with its role is a line.
-    # ... and identity.data_plane_role_assignments (Cosmos DB's own role model) the same way.
-    for rk, rnode in resources.items():
-        for group in ('role_assignments', 'data_plane_role_assignments'):
-            ras = get_decision(rnode, ['identity', group]) if isinstance(rnode, dict) else None
-            for ra in as_list(ras):
-                if isinstance(ra, dict) and ra.get('principal') and ra.get('role'):
-                    line = f"{s(ra['principal'])}: {s(ra['role'])}"
-                    if line not in role_lines.setdefault(rk, []):
-                        role_lines[rk].append(line)
     role_principals = {k: {ln.split(':', 1)[0] for ln in v} for k, v in role_lines.items()}
 
     def compute_subnet(k):

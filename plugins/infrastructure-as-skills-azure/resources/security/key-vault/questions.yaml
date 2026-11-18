@@ -15,7 +15,7 @@ boundaries:
   - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not render a secret's value. A secret is created as a **placeholder** (`secret_placeholders`) whose real value is filled in later, outside the template; the value never goes into a template, and a deployment-time secure parameter is the only other route. Certificate issuance has its own decisions."
-  - "Does not grant the vault's consumers their roles - that is wiring between resources, owned by a pattern. It records the vault's own role assignments in `role_assignments`."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not create a Managed HSM. `key_protection: hsm` selects the Premium vault; a single-tenant HSM is a separate resource."
 
 groups:
@@ -245,32 +245,6 @@ groups:
           every public caller, which is valid and deliberate. `0.0.0.0/0` is not an
           allowlist and is rejected by the guardrails; a single address takes `/32`.
 
-  # ----------------------------------------------------------------- identity
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this vault?"
-          de: "Wer braucht welche Rolle auf diesem Vault?"
-        type: list
-        plain:
-          en: "Access rights on the vault granted to: {value}."
-          de: "Zugriffsrechte auf den Tresor vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With RBAC authorization nothing can read or write the vault until a role is
-          assigned - not even the identity that created it - so an empty list is a working
-          vault nobody can use, and not an answer: when no consumer is named, the list stays
-          empty and the decision is an `open:` entry owned by the workload owner, blocking
-          apply. Scope to the secret or the key where the consumer allows it, never to the
-          subscription. The roles are the narrow ones - `Key Vault Secrets User`, `Key Vault
-          Crypto Service Encryption User`, `Key Vault Secrets Officer` for a writer - and
-          `Key Vault Administrator` is a departure that names a person. A pattern normally
-          fills this from the consumers it knows about, and grants a consumer's role in the
-          pattern, not here.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
@@ -317,8 +291,8 @@ groups:
           creates placeholders outside the module in Terraform (`azurerm_key_vault_secret`
           with `lifecycle { ignore_changes = [value] }`) and, in Bicep, only when the secret
           does not exist yet (a `secretExists`-style parameter, set by the pipeline).
-          Names only, never values. The writer needs `Key Vault Secrets Officer`, which
-          belongs in `role_assignments`.
+          Names only, never values. The writer needs `Key Vault Secrets Officer`: a
+          `wiring.role_assignments` entry with the vault as `to`.
 
   # --------------------------------------------------------------------- keys
   - id: keys

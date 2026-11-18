@@ -18,6 +18,19 @@ consumer does: the puller is created with an identity first (user-assigned, or s
 and the role granted straight after), and the image is pulled only once the role has
 propagated - the cause of the usual `ImagePullBackOff` on a first deployment.
 
+## Roles
+
+A role on the registry is a `wiring.role_assignments` entry with it as `to`. With the admin
+user off, nothing pulls or pushes until one exists: `AcrPull` for whatever runs the images,
+`AcrPush` for the pipeline that builds them - and never both on the same principal. A
+consumer nobody has named is an `open:` entry (key `wiring.role_assignments`) owned by the
+workload owner, blocking apply.
+
+The scope of an entry is the registry, never the subscription; narrowing a role to one
+repository takes attribute-based access and a condition, which an entry does not carry. The
+puller's identity exists only after the registry does, which is one reason the role is
+wiring and no input the registry could be created with.
+
 ## Pitfalls
 
 **A closed registry cannot be pushed to from outside the network.** With

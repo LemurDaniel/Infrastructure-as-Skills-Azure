@@ -16,6 +16,14 @@ and not a template property; then the communication service with the domain link
 role of the application's identity, then the diagnostic setting (workspace before it). Phone
 numbers and Teams interoperability are purchases after everything else.
 
+## Roles
+
+A role on the resource is a `wiring.role_assignments` entry with it as `to`. With keys off,
+an application sends a mail or issues a user token only through a role on this resource, so
+one without a role for its caller works and is of no use to anyone. The narrow role is
+`Communication and Email Service Owner` for the application that sends and manages
+identities; `Contributor` is a departure that names a person.
+
 ## Pitfalls
 
 **There is no private endpoint.** The resource has `publicNetworkAccess`, but `Disabled` without

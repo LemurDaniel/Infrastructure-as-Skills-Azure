@@ -13,6 +13,15 @@ The identity first, then its roles on the resources it will call, then the consu
 take it. This is the whole reason to use one: the roles exist before the consumer starts - a
 Key Vault reference in app settings, a customer-managed key on a storage account.
 
+## Roles
+
+An identity is on both sides of a role, and both are `wiring.role_assignments` entries. With
+the identity as `from` it is a role the identity holds on a resource it calls. With the
+identity as `to` it is a role granted *on the identity itself*: `Managed Identity Operator`
+is the one that lets a principal assign it to a resource it creates, which a pipeline
+deploying the consumer needs. Where the deploying principal owns the resource group, the
+spec has no entry with the identity as `to`.
+
 ## Pitfalls
 
 **Role assignments are propagated slowly.** A role granted to a new identity can take minutes

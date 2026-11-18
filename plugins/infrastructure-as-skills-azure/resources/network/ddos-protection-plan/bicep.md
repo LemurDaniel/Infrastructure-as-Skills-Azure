@@ -43,7 +43,7 @@ module ddosProtectionPlan 'br/public:avm/res/network/ddos-protection-plan:0.3.2'
     location: location
     tags: tags
 
-    // decision: ddos-protection-plan.access.role_assignments
+    // decision: wiring.role_assignments
     roleAssignments: []
 
     enableTelemetry: false // deployment.module_telemetry: disabled

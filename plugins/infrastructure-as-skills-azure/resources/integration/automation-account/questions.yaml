@@ -17,7 +17,7 @@ boundaries:
   - "Does not configure Update Management, Change Tracking and Inventory or State Configuration (DSC). Update Management and the Log Analytics agent they ran on are retired: patching is Azure Update Manager with a maintenance configuration (the compute family's `maintenance-configuration` set), Change Tracking runs on the Azure Monitor agent with a data collection rule, and DSC is replaced by Machine Configuration. The account is therefore never linked to a Log Analytics workspace (Bicep `linkedWorkspaceResourceId`, `gallerySolutions`): that link existed for those solutions; diagnostics go through a diagnostic setting."
   - "Does not create private DNS zones (`privatelink.azure-automation.net`) - shared infrastructure, owned by a pattern or the platform."
   - "Does not create the Log Analytics workspace it routes diagnostics to, nor the Key Vault key it may be encrypted with."
-  - "Does not grant the roles the account's identity needs on what its runbooks manage (stopping VMs, rotating secrets). Those are wiring, owned by a pattern; `role_assignments` is for who may use this account."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not carry a resource lock: `deployment.resource_lock` lists resources whose loss cannot be undone from the spec, and an account is recreated from it with its content redeployed from the repository."
 
 groups:
@@ -212,52 +212,35 @@ groups:
           (`Connect-AzAccount -Identity -AccountId`), so one identity per account keeps that
           unambiguous.
 
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this automation account?"
-          de: "Wer braucht welche Rolle auf diesem Automation-Konto?"
-        type: list
-        plain:
-          en: "Access rights on the automation account granted to: {value}."
-          de: "Zugriffsrechte auf das Automation-Konto vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Who may author, start and read jobs: `Automation Contributor` for the team that
-          deploys runbooks, `Automation Operator` or `Automation Job Operator` for whoever
-          starts them, `Reader` for job output. Contributor on the account lets someone
-          change a runbook that runs with the account's identity, which is the identity's
-          rights in someone else's hands - scope it narrowly. A pattern fills it from the
-          teams it knows.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients authenticate to the account without Entra ID?"
           de: "Dürfen sich Clients ohne Entra ID am Konto anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in without a company account is {value}."
           de: "Die Anmeldung ohne Firmenkonto ist {value}."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         forced_when: >
           A webhook is a URL with a token in it: with local authentication disabled no
           webhook starts a job. An account whose jobs must be started by webhook records
-          `local_auth: allowed_where_unavoidable` for this account alone, with the caller in
+          `local_auth: enabled` for this account alone, with the caller in
           the reason - or the caller starts the job through ARM with an identity instead
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. Local authentication is the
+          Inherited from the deployment's `local_auth`. Local authentication is the
           webhook token and the agent-based worker's key - bearer credentials that start
           jobs with the account's identity and are not attributable. Extension-based hybrid
           workers and every job started through ARM keep working. **The modules disagree**:
           Bicep disables it by default, Terraform's `local_authentication_enabled` defaults on
-          and is the inverse.
+          and states it positively.
 
       - id: key_management
         ask:

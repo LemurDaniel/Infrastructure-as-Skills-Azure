@@ -23,14 +23,16 @@ So: **never render without a spec.** If there is none, go to
 conversation produces code nobody can regenerate and a decision record that does not exist.
 
 **Version gate: a spec from a newer plugin is not rendered.** Run
-`python <plugin>/core/iac-authoring/scripts/check_plugin_version.py <spec>` first. Exit 3 means
+`python3 <plugin>/core/iac-authoring/scripts/check_plugin_version.py <spec>` first (which interpreter:
+[iac-authoring](../iac-authoring/SKILL.md#which-python)). Any exit other than 0 or 3 means the
+script could not run: compare the two versions by hand, never read it as a pass. Exit 3 means
 `spec.plugin_version` is newer than the installed plugin: halt - render nothing, write nothing -
 and follow the version gate in [iac-authoring](../iac-authoring/SKILL.md#before-anything--find-an-existing-spec):
 one AskUserQuestion offering the update, no way on with the older plugin. A render that goes
 ahead sets `spec.plugin_version` to the installed version.
 
 **Then the digest, before any reference:**
-`python <plugin>/core/iac-rendering/scripts/render_digest.py <spec>`. It prints the spec's
+`python3 <plugin>/core/iac-rendering/scripts/render_digest.py <spec>`. It prints the spec's
 shape, every deployment and resource decision under the key path its test names, with
 its value, source and what the resource's `render-map.yaml` maps it to for the target and
 implementation - the attribute and the literal the value becomes
@@ -50,7 +52,7 @@ hand-over. The digest's literal is the one to write; a `gap` is rendered the way
 | `composition` | The module split. One `modules` entry is a directory (Terraform) or a file (Bicep) |
 | `context` | Variables/parameters shared by every module, resolved once |
 | `resources.<id>` | Decisions → attributes and literals, via the resource's `render-map.yaml` (the digest prints them) and its rendering reference |
-| `wiring` | Renders into the root, never into a module — only the caller sees both ends |
+| `wiring` | Renders into the root, never into a module — only the caller sees both ends. `role_assignments` (`{ from, to, role }`) are one assignment each at the target's scope - through the target's module interface or standalone, the principal id from the source's module or the stage file: [role-assignments.md](references/role-assignments.md); `secrets` (`{ app, setting, vault, secret_name }`) are an app setting holding the Key Vault reference of that secret - on Container Apps a secret with its Key Vault URL and the environment variable naming it - resolved with the application's identity, never a value ([spec.md](../iac-authoring/references/spec.md#patterns-and-the-wiring)) |
 | `_target_overrides` | Target-specific escape hatches, each `{ value, reason }`; the reason becomes the comment in the code |
 
 The digest reads the spec for the render; the schema behind it is
@@ -87,7 +89,7 @@ there when the digest does not explain it, never infer the shape from an example
    naming modules are not shipped. Both read the root's `naming.yaml`, never the plugin's
    default, so a re-render keeps every name the root already has. **A root without one gets
    it first, before any name is rendered**, even for a one-line change:
-   `python <plugin>/core/iac-rendering/scripts/write_naming.py <spec>` writes the full copy,
+   `python3 <plugin>/core/iac-rendering/scripts/write_naming.py <spec>` writes the full copy,
    with each type's pattern as an existing Bicep root names it (`write_spec.py` runs it too).
    Never copy the file by hand; a name it reports as not read back is checked by hand.
 6. **Write the secure value explicitly**, even where it matches the provider or API
@@ -95,7 +97,8 @@ there when the digest does not explain it, never infer the shape from an example
    review.
 7. **Render the tests with the code, not after it.** Every decision under `resources:`
    in the spec is asserted by exactly one test, and a decision that cannot be observed in
-   a plan is marked as such with its reason. A render without its tests is not finished —
+   a plan is marked as such with its reason; `wiring.role_assignments` is asserted too, once
+   per target its entries land on. A render without its tests is not finished —
    the tests are what make "the code matches the spec" a check instead of a claim, and
    what makes the next re-render a diff instead of a review. The shape per target is in
    the idiom file; `scripts/check_render_coverage.py` fails on an unasserted decision.

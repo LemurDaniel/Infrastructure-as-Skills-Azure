@@ -198,7 +198,7 @@ resources:
         value: enabled
         source: default
       local_auth:
-        value: false
+        value: disabled
         source: deployment
       rbac_only_access:
         value: true
@@ -234,22 +234,9 @@ resources:
       public_network_access:
         value: enabled
         source: default
-    identity:
-      role_assignments:
-        value:
-          development:
-          - principal: app-service
-            role: Monitoring Metrics Publisher
-          test:
-          - principal: app-service
-            role: Monitoring Metrics Publisher
-          production:
-          - principal: app-service
-            role: Monitoring Metrics Publisher
-        source: assumed
     security:
-      local_authentication_disabled:
-        value: true
+      local_auth:
+        value: disabled
         source: deployment
   key-vault:
     meta:
@@ -326,24 +313,12 @@ resources:
       managed_identity:
         value: system_assigned
         source: default
-      role_assignments:
-        value:
-          development:
-          - principal: search-service
-            role: Storage Blob Data Reader
-          test:
-          - principal: search-service
-            role: Storage Blob Data Reader
-          production:
-          - principal: search-service
-            role: Storage Blob Data Reader
-        source: asked
     security:
-      shared_access_key_enabled:
-        value: false
+      local_auth:
+        value: disabled
         source: deployment
       min_tls_version:
-        value: TLS1_2
+        value: "1.2"
         source: default
       https_traffic_only:
         value: true
@@ -442,27 +417,9 @@ resources:
       managed_identity:
         value: system_assigned
         source: default
-      role_assignments:
-        value:
-          development:
-          - principal: app-service
-            role: Cognitive Services OpenAI User
-          - principal: search-service
-            role: Cognitive Services OpenAI User
-          test:
-          - principal: app-service
-            role: Cognitive Services OpenAI User
-          - principal: search-service
-            role: Cognitive Services OpenAI User
-          production:
-          - principal: app-service
-            role: Cognitive Services OpenAI User
-          - principal: search-service
-            role: Cognitive Services OpenAI User
-        source: stated
     security:
-      local_authentication_disabled:
-        value: true
+      local_auth:
+        value: disabled
         source: deployment
       key_management:
         value: platform_managed
@@ -516,21 +473,9 @@ resources:
       managed_identity:
         value: system_assigned
         source: default
-      role_assignments:
-        value:
-          development:
-          - principal: app-service
-            role: Search Index Data Reader
-          test:
-          - principal: app-service
-            role: Search Index Data Reader
-          production:
-          - principal: app-service
-            role: Search Index Data Reader
-        source: stated
     security:
-      local_authentication_disabled:
-        value: true
+      local_auth:
+        value: disabled
         source: deployment
       key_management:
         value: platform_managed
@@ -641,6 +586,24 @@ wiring:
     - privatelink.azurewebsites.net
     - privatelink.monitor.azure.com
     source: { forced_by: deployment.private_dns_ownership }
+  role_assignments:
+    value:
+    - from: app-service
+      to: application-insights
+      role: Monitoring Metrics Publisher
+    - from: search-service
+      to: storage-account
+      role: Storage Blob Data Reader
+    - from: app-service
+      to: foundry
+      role: Cognitive Services OpenAI User
+    - from: search-service
+      to: foundry
+      role: Cognitive Services OpenAI User
+    - from: app-service
+      to: search-service
+      role: Search Index Data Reader
+    source: stated
   access:
     value:
     - from: users
@@ -717,12 +680,12 @@ open:
   question: Which runtime stack and version does the web app run (runtime_stack and runtime_version)?
   owner: workload owner
   blocks: apply
-- key: resources.key-vault.identity.role_assignments
+- key: wiring.role_assignments
   question: Which principal reads which secrets? Nothing stated; with RBAC-only access a vault without assignment is working
     as specified and unusable.
   owner: workload owner
   blocks: apply
-- key: resources.storage-account.identity.role_assignments
+- key: wiring.role_assignments
   question: Who uploads the documents, and which data-plane role does that principal need? Only the search service (reader)
     is assigned.
   owner: workload owner

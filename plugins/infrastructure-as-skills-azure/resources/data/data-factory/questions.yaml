@@ -20,6 +20,7 @@ boundaries:
   - "Does not create the virtual machine of a self-hosted integration runtime, nor install the runtime on it: the VM is the compute family's; this set creates the runtime registration and its key."
   - "Does not create the Purview account a factory reports lineage to; it references one."
   - "Does not render Azure-SSIS integration runtimes, Airflow (Workflow Orchestration Manager), the Data Factory version 1 model, or the Fabric Data Factory."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -438,23 +439,6 @@ groups:
           store by the pattern or the render skill, and every store named here that is
           private also needs an entry in `managed_private_endpoints`. Empty is a working
           factory with nothing to copy; a pattern fills it from the stores it knows.
-
-      - id: role_assignments
-        ask:
-          en: "Who may author and operate the factory?"
-          de: "Wer darf die Factory erstellen und betreiben?"
-        type: list
-        plain:
-          en: "Rights on the factory granted to: {value}."
-          de: "Rechte an der Factory vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the factory - `Data Factory Contributor` for the authors of the
-          development factory (the portal needs it to save), `Reader` plus the monitoring
-          views for operators, and nothing for people on the other stages, which the
-          pipeline deploys. Empty is a normal answer for a factory the deploying principal
-          alone manages.
 
   # ----------------------------------------------------------------- security
   - id: security

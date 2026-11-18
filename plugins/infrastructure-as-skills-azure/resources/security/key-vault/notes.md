@@ -17,6 +17,19 @@ data-plane write needs the role first - the AVM Terraform module waits for RBAC 
 secret operations), then the consumers. A consumer's role on a key is granted in the pattern
 that wires them, before the consumer exists. The workspace before the diagnostic setting.
 
+## Roles
+
+A role on the vault is a `wiring.role_assignments` entry with it as `to`. With RBAC
+authorization nothing can read or write the vault until one exists - not even the identity
+that created it - so a vault without a role for its reader works and is of no use to anyone.
+A consumer nobody has named is an `open:` entry (key `wiring.role_assignments`) owned by the
+workload owner, blocking apply.
+
+Scope to the secret or the key where the consumer allows it - a `key-vault-secret` or
+`key-vault-key` resource as `to` - never to the subscription. The roles are the narrow ones:
+`Key Vault Secrets User`, `Key Vault Crypto Service Encryption User`, `Key Vault Secrets
+Officer` for a writer. `Key Vault Administrator` is a departure that names a person.
+
 ## Pitfalls
 
 **A closed vault cannot be filled by a pipeline outside the network.** With

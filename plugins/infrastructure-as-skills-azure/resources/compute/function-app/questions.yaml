@@ -24,6 +24,7 @@ boundaries:
   - "Does not set application settings or connection strings. They are deployment configuration, and a secret is a Key Vault reference resolved with the app's identity, never a value."
   - "Does not render triggers, bindings, function code, deployment slots, custom domains, Easy Auth or Logic Apps (Standard), which is the same module with another `kind` and different decisions."
   - "Does not render the Consumption (Y1) plan or Functions on a dedicated App Service plan shared with web apps."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -460,20 +461,6 @@ groups:
         why: >
           The identity must already exist and hold its roles on the host storage; this set does
           not create it or grant them.
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage the function app?"
-          de: "Wer darf die Function App verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the function app granted to: {value}."
-          de: "Verwaltungsrechte an der Function App vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the app - the control plane. Usually the deploying principal's alone, so
-          empty is a normal answer.
 
   # ----------------------------------------------------------------- security
   - id: security

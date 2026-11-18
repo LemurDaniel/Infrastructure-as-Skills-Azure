@@ -17,6 +17,7 @@ boundaries:
   - "Does not create alerts or action groups - their own sets (observability/alert-rule, observability/action-group)."
   - "Does not create availability tests, workbooks or dashboards. Each is a separate concern and has no question set yet."
   - "Does not render the profiler and debugger storage (`linked_storage_account`)."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -192,7 +193,7 @@ groups:
           the standalone case none exists and `disabled` is a component that receives no
           telemetry at all: the SDK sends nothing and reports nothing, and nothing at apply
           says so. So `enabled` is the default, with ingestion authenticated by Entra ID
-          (`local_authentication_disabled`) and encrypted. `disabled` is for a stated AMPLS
+          (`local_auth: disabled`) and encrypted. `disabled` is for a stated AMPLS
           the component joins (`private_link_scope`), and then every application that sends
           to it must reach that scope. Both modules default both switches to enabled, so the
           value is always written.
@@ -218,51 +219,25 @@ groups:
           scope is not created here. Without one, a closed component cannot receive telemetry
           at all. With no answer the decision is an `open:` entry owned by the platform team.
 
-  # ----------------------------------------------------------------- identity
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this component?"
-          de: "Wer braucht welche Rolle auf dieser Komponente?"
-        type: list
-        plain:
-          en: "Access rights on the component granted to: {value}."
-          de: "Zugriffsrechte auf die Komponente vergeben an: {value}."
-        default: []
-        per_environment: true
-        forced_when: >
-          `application_monitoring: enabled` with `local_authentication_disabled: true` grants every
-          application whose `application_insights` names this component `Monitoring Metrics
-          Publisher` on it, recorded as forced with `application_monitoring` as forced_by
-        why: >
-          With local authentication off, an application sends telemetry only with an Entra
-          token, so its identity needs `Monitoring Metrics Publisher` on the component, and its
-          `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` setting tells the agent to use that
-          identity; an application still on the instrumentation key
-          loses its telemetry the moment the switch is turned. People who read the data need
-          `Monitoring Reader` or a role on the workspace. A pattern fills this from the
-          consumers it knows.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May applications send telemetry with the instrumentation key alone?"
           de: "Dürfen Anwendungen Telemetrie allein mit dem Instrumentation Key senden?"
-        type: bool
+        type: enum
         plain:
           en: "Sending telemetry with only a key is {value}; applications sign in with company identities."
           de: "Das Senden von Telemetrie nur mit einem Schlüssel ist {value}; Anwendungen melden sich mit Firmenidentitäten an."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. The instrumentation key is
+          Inherited from the deployment's `local_auth`. The instrumentation key is
           embedded in the connection string, sits in every app setting and every browser that
           loads a page with the JavaScript SDK, and anyone who has it can send telemetry - fake
           events, a flood against the cap. With it off only authenticated senders are

@@ -164,9 +164,10 @@ Beyond the script:
 - **A question set's `why` is not optional.** It is the only artefact that
   survives into a review of generated infrastructure. A commit adding questions
   without it is incomplete, not minimal.
-- **Documented capabilities match reality.** `README.md` currently marks
-  `patterns/` as not written. Do not let a commit quietly imply otherwise — if
-  it makes it true, say so; if not, leave the marker. A commit touching a
+- **Documented capabilities match reality.** `README.md` marks what is planned
+  and what exists. Do not let a commit quietly imply otherwise — if it makes a
+  marker true, say so; if not, leave it. A commit touching a pattern also runs
+  `python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_pattern.py`. A commit touching a
   question set also runs
   `python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_question_set.py`.
 - **`PROGRESS.md` is rewritten before a session's last commit.** Goal,

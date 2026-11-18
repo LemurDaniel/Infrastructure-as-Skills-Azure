@@ -158,14 +158,15 @@ groups:
         ask:
           en: "Should workspace keys be usable for ingestion?"
           de: "Sollen Workspace-Schlüssel für die Datenaufnahme nutzbar sein?"
-        type: bool
+        type: enum
         plain:
           en: "Sending logs with the workspace key is {value}."
           de: "Logs mit dem Arbeitsbereichs-Schlüssel zu senden ist {value}."
         plain_values:
-          true: { en: "possible", de: "möglich" }
-          false: { en: "not possible - agents use company identities", de: "nicht möglich, Agenten nutzen Firmenidentitäten" }
-        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
+          enabled: { en: "possible", de: "möglich" }
+          disabled: { en: "not possible - agents use company identities", de: "nicht möglich, Agenten nutzen Firmenidentitäten" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
           The shared key is a bearer credential with ingestion rights and no
           expiry. Disabling it forces Entra ID, which the modern agents use

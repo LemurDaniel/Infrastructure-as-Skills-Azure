@@ -44,7 +44,7 @@ variables {
 run "identity" {
   command = plan
 
-  # decision: key-vault.identity.role_assignments
+  # decision: wiring.role_assignments
   assert {
     condition     = length([for k in keys(azurerm_role_assignment.this) : k if startswith(k, "key-vault/")]) == 1 && azurerm_role_assignment.this["key-vault/app-service/Key Vault Secrets User"].role_definition_name == "Key Vault Secrets User"
     error_message = "The app reads the client secret (Key Vault Secrets User), and nothing else is granted here."

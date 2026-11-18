@@ -12,7 +12,7 @@ naming:
   abbreviation: "ra"
 
 boundaries:
-  - "Does not replace the `role_assignments` decision of the other sets. A resource's own list (a vault's readers, a storage account's data roles) renders through that module's `role_assignments` interface; this set is for an assignment that has no such home - see `notes.md`, *Interface or standalone*."
+  - "Does not hold a role between two resources of the spec. That is a `wiring.role_assignments` entry (`{ from, to, role }`); this set is for an assignment at a scope that is no resource of the spec - a resource group, a subscription, a management group, a platform resource - see `notes.md`, *Wiring or this set*."
   - "Does not create the principal. A user-assigned identity is the `user-assigned-identity` set's; a user, group or app registration is a directory object (`azuread`, Graph), recorded as an `open:` entry owned by the identity team."
   - "Does not define custom roles (`Microsoft.Authorization/roleDefinitions`): a custom role carries its own action list and assignable scopes. A role that is not built in is an `open:` entry until that set exists."
   - "Does not render eligible (PIM) assignments, deny assignments, Azure Policy assignments or Entra directory roles. They are different resource types with different decisions."

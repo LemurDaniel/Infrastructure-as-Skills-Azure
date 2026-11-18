@@ -1,0 +1,104 @@
+schema_version: "1.1"
+name: integration-nothing-invented
+
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: infrastructure-as-skills-azure
+
+  # The request describes the system, so the pattern is chosen and recorded.
+  - name: pattern-recorded
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^pattern:\s*\n\s+id:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?\W?event-integration\b'
+    flags: m
+
+  # What the pattern answered says so.
+  - name: source-pattern
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'source:\s*pattern\b'
+
+  - name: part-gateway
+    type: regex
+    weight: 1
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  api-management:'
+    flags: m
+
+  - name: part-functions
+    type: regex
+    weight: 1
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  function-app__processor:'
+    flags: m
+
+  - name: part-queue
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  service-bus:'
+    flags: m
+
+  # message_flow: queue - no topic, and nothing else the request did not describe.
+
+  - name: no-event-topic
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  event-grid-topic:'
+    flags: m
+    match: not_contains
+
+  - name: no-invented-vault
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  key-vault:'
+    flags: m
+    match: not_contains
+
+  - name: no-invented-database
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: '^  (?:cosmos-db|sql-database|postgresql-flexible-server|redis-cache):'
+    flags: m
+    match: not_contains
+
+  # The functions act with their identity: the roles are the identity's, never the app's.
+
+  - name: sender-role-on-the-identity
+    type: regex
+    weight: 3
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'from:\s*\W?user-assigned-identity__processor\W?\s*\n\s+to:\s*\W?service-bus\W?\s*\n\s+role:\s*\W?Azure Service Bus Data Sender\b'
+    flags: m
+
+  - name: no-role-on-the-function-app
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'from:\s*\W?function-app__processor\W?\s*\n\s+to:\s*\S+\s*\n\s+role:'
+    flags: m
+    match: not_contains
+
+  - name: host-storage-referenced
+    type: regex
+    weight: 2
+    target: { source: file, path: infra/infra-spec.yaml }
+    pattern: 'host_storage_account:\s*(?:#[^\n]*\s*)*(?:\{\s*)?(?:value:\s*)?(?:#[^\n]*\s*)*(?:\{\s*)?resource:\s*\W?storage-account__host\b'
+    flags: m
+
+  - name: no-code-before-confirmation
+    type: file_exists
+    path: '**/*.tf'
+    exists: false
+
+  - name: no-bicep-before-confirmation
+    type: file_exists
+    path: '**/*.bicep'
+    exists: false

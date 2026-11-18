@@ -18,6 +18,7 @@ boundaries:
   - "Does not register or scan data sources, create collections, classifications, glossaries or policies, and does not grant the collection roles (Collection admin, Data curator, Data reader, Data source admin): those are the data plane of the account, change at the programme's pace and are recorded as `collection_roles` and content, never rendered as Azure resources."
   - "Does not create the self-hosted integration runtime a scan of on-premises sources needs; the VM is the compute family's."
   - "Does not render Purview compliance and risk solutions (Microsoft 365), the Purview data security features licensed per user, or a customer-managed key - the account does not support one."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -331,23 +332,6 @@ groups:
           principal can use; a pattern or the governance team fills it. Each entry is an
           identity and a role on a collection, least privilege first, and a Data Factory
           that reports lineage needs `Data curator` here.
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage the account itself?"
-          de: "Wer darf das Konto selbst verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the account granted to: {value}."
-          de: "Verwaltungsrechte am Konto vergeben an: {value}."
-        default: []
-        depends_on: { question: ownership, equals: deployment }
-        per_environment: true
-        why: >
-          Azure RBAC on the account - the control plane: networking, the managed resources,
-          diagnostics, deleting the account. Separate from the collection roles on purpose;
-          `Reader` on the account is also what a user needs before the portal lets them
-          sign in to it. Usually the deploying principal's plus the governance team's.
 
   # ------------------------------------------------------------ observability
   - id: observability

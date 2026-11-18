@@ -20,10 +20,13 @@ from pathlib import Path
 try:
     import yaml
 except ImportError:
-    sys.exit("PyYAML is required: pip install pyyaml")
+    print("PyYAML is required: pip install pyyaml")
+    sys.exit(2)
 
 HERE = Path(__file__).resolve().parent
 PLUGIN = HERE.parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'lib'))
+import plugin_lib  # noqa: E402 - the paths and the set lookup every script shares
 DEFAULT_NAMING = HERE.parent / "references" / "naming.default.yaml"
 
 # type id -> (min, max, charset regex of the whole name, must start with a letter, global)
@@ -98,8 +101,8 @@ def per_stage(node, stage):
 
 
 def find_set(name):
-    hits = sorted((PLUGIN / "resources").glob(f"*/{name}/questions.yaml"))
-    return load_yaml(hits[0]) if hits else None
+    path = plugin_lib.set_path(name)
+    return load_yaml(Path(path)) if path else None
 
 
 TOKEN = re.compile(r"<(\?)?([A-Z_]+?)(?:_(\d+))?(?:;([^>]*))?>")

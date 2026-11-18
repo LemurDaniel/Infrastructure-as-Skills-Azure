@@ -23,6 +23,7 @@ boundaries:
   - "Does not render a custom content-filter policy. `content_filter` names a built-in policy; defining one is a decision with its own question set."
   - "Does not cover other Cognitive Services kinds (Speech, Vision, Language, Document Intelligence). They decide differently and have no question set."
   - "Does not create an Azure Machine Learning hub or workspace; the account-based Foundry resource needs none."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -436,47 +437,28 @@ groups:
         per_environment: true
         why: The identity must already exist; this set does not create it.
 
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this account?"
-          de: "Wer braucht welche Rolle auf diesem Konto?"
-        type: list
-        plain:
-          en: "Access rights on the account granted to: {value}."
-          de: "Zugriffsrechte auf das Konto vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With keys off, nothing calls a model until a role is assigned, so an empty list is a
-          working account nobody can use, and not an answer: with no consumer named it is an
-          `open:` entry owned by the workload owner, blocking apply. The roles are the narrow
-          ones - `Cognitive Services OpenAI User` for an application that only calls models,
-          `Azure AI User` for one that also uses projects and agents - and `Cognitive
-          Services Contributor` or an owner role is a departure that names a person. A role
-          that can *list keys* has no business in a keyless account. A pattern fills this
-          from the consumers it knows about.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients sign in with the account keys?"
           de: "Dürfen sich Clients mit den Kontoschlüsseln anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in with account keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit Kontoschlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. A key is a bearer credential
+          Inherited from the deployment's `local_auth`. A key is a bearer credential
           for every model on the account, is not attributable and pays for whatever it
           is used for. **The modules disagree**: Bicep disables keys by default, Terraform's
-          `local_auth_enabled` defaults on, and the Terraform input is the inverse. The
+          `local_auth_enabled` defaults on and states the switch positively. The
           client then needs a token for the `https://cognitiveservices.azure.com` scope and
           the account's custom subdomain, which is why the subdomain is set.
 

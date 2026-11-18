@@ -215,28 +215,18 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: "an object keyed by identity id, each value empty (source: bicep build, Microsoft.CognitiveServices/accounts@2025-06-01)"
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform:
-      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
-      note: "one per entry, scope = the account id (source: azurerm 5.12 schema)"
-    bicep_avm: { attribute: roleAssignments }
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
-      note: "one per entry, scoped to the account; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
 
   # ----------------------------------------------------------------- security
-  security.local_authentication_disabled:
+  security.local_auth:
     terraform_avm:
       attribute: local_auth_enabled
-      values: { true: false, false: true }
-      note: inverse; module default null (on) - written
+      values: { disabled: false, enabled: true }
+      note: module default null (on) - written
     terraform:
       attribute: local_auth_enabled
-      values: { true: false, false: true }
-      note: inverse
-    bicep_avm: { attribute: disableLocalAuth, passthrough: true, note: module default true; written anyway }
-    bicep: { attribute: properties.disableLocalAuth, passthrough: true }
+      values: { disabled: false, enabled: true }
+    bicep_avm: { attribute: disableLocalAuth, values: { disabled: true, enabled: false }, note: module default true; written anyway }
+    bicep: { attribute: properties.disableLocalAuth, values: { disabled: true, enabled: false } }
   security.key_management:
     terraform_avm:
       attribute: customer_managed_key

@@ -168,7 +168,7 @@ supports disabling local auth, disable it:
 
 | Resource | The switch |
 |---|---|
-| Storage account | `shared_access_key_enabled: false` |
+| Storage account | `local_auth: disabled` |
 | Key Vault | `rbac_authorization: true` (not access policies) |
 | App Service | FTP and SCM basic publishing credentials disabled; both switches, they are separate |
 | Service Bus / Event Hub | local auth disabled |
@@ -183,7 +183,9 @@ exists is the usual legitimate reason.
 
 Role assignments are scoped as tightly as the consumer allows: the specific container or
 secret, not the subscription. A role assignment at subscription scope in generated code is
-a bug unless the resource genuinely operates subscription-wide.
+a bug unless the resource genuinely operates subscription-wide. A role is recorded once, as
+a relationship between two parts of the system (`wiring.role_assignments` in the spec), on
+the narrowest resource that carries the access.
 
 ## 4. Encryption
 

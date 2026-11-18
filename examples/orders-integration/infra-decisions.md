@@ -16,29 +16,32 @@ Eine Ressourcengruppe wird als Ganzes gelöscht, berechtigt und abgerechnet. Jed
 
 | Gruppe | Zustand | Name | Enthält |
 |---|---|---|---|
-| Haupt | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure API Management service, Azure Event Grid custom topic, Azure Event Hubs namespace, Azure Functions (function app on Flex Consumption or Elastic Premium), Azure Key Vault, Azure Service Bus namespace |
 | Netzwerk | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure Application Gateway (v2) with web application firewall, Azure Front Door (Standard / Premium), Azure Virtual Network |
 | Daten | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure Backup vault, Azure Recovery Services vault, Azure Storage Account |
+| Anwendung | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure API Management service, Azure Event Grid custom topic, Azure Event Hubs namespace, Azure Functions (function app on Flex Consumption or Elastic Premium), Azure Service Bus namespace |
 | Überwachung | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure Log Analytics Workspace |
+| Sicherheit | wird mit dem System angelegt | nach der Namenskonvention benannt | Azure Key Vault |
 
 ## Was sich zwischen den Stufen unterscheidet
 
 Ein Code wird durch diese Stufen ausgerollt; alles, was hier nicht steht, ist in jeder Stufe gleich.
 
 - Gegen absichtliche Zerstörung sind die Daten Entwicklung: zusätzlich in einem getrennten Backup-Speicher, den die Administratoren des Systems nicht löschen können; Test: zusätzlich in einem getrennten Backup-Speicher, den die Administratoren des Systems nicht löschen können; Echtbetrieb: zusätzlich in einem getrennten Backup-Speicher, in dem niemand eine Kopie vor ihrem Ablauf ändern oder löschen kann.
-- Logs werden Entwicklung: 30; Test: 30; Echtbetrieb: 90 Tage aufbewahrt.
-- Azure API Management service: Das Gateway ist die Stufe Entwicklung: eine Teststufe ohne Verfügbarkeitszusage; Test: eine Teststufe ohne Verfügbarkeitszusage; Echtbetrieb: Premium, mit Zonen, mehreren Regionen und Netzwerkeinbindung.
+- Logs werden Entwicklung: 30; Test: 30; Echtbetrieb: 90 Tage aufbewahrt. _(außerhalb der Produktion günstiger)_
+- Azure API Management service: Das Gateway ist die Stufe Entwicklung: eine Teststufe ohne Verfügbarkeitszusage; Test: eine Teststufe ohne Verfügbarkeitszusage; Echtbetrieb: Premium, mit Zonen, mehreren Regionen und Netzwerkeinbindung. _(außerhalb der Produktion günstiger)_
 - Azure Service Bus namespace: Der Namensraum ist die Stufe Entwicklung: Standard, Warteschlangen und Themen auf geteilter Kapazität; Test: Standard, Warteschlangen und Themen auf geteilter Kapazität; Echtbetrieb: Premium, dedizierte Kapazität mit privaten Anbindungen.
 - Azure Service Bus namespace: Der Dienst (namespace) ist Entwicklung: aus dem Internet nur von gelisteten Adressen erreichbar; Test: aus dem Internet nur von gelisteten Adressen erreichbar; Echtbetrieb: aus dem Internet überhaupt nicht erreichbar.
-- Azure Backup vault: Die Sicherungen werden Entwicklung: dreifach in einem Rechenzentrum; Test: dreifach in einem Rechenzentrum; Echtbetrieb: zusätzlich in einer zweiten Region aufbewahrt.
+- Azure Backup vault: Die Sicherungen werden Entwicklung: dreifach in einem Rechenzentrum; Test: dreifach in einem Rechenzentrum; Echtbetrieb: zusätzlich in einer zweiten Region aufbewahrt. _(außerhalb der Produktion günstiger)_
 - Azure Backup vault: Wiederherstellung in der Partnerregion ist Entwicklung: nicht möglich; Test: nicht möglich; Echtbetrieb: möglich.
-- Azure Recovery Services vault: Die Sicherungen werden Entwicklung: dreifach in einem Rechenzentrum; Test: dreifach in einem Rechenzentrum; Echtbetrieb: zusätzlich in einer zweiten Region aufbewahrt.
+- Azure Recovery Services vault: Die Sicherungen werden Entwicklung: dreifach in einem Rechenzentrum; Test: dreifach in einem Rechenzentrum; Echtbetrieb: zusätzlich in einer zweiten Region aufbewahrt. _(außerhalb der Produktion günstiger)_
 - Azure Recovery Services vault: Wiederherstellung in der Partnerregion ist Entwicklung: nicht möglich; Test: nicht möglich; Echtbetrieb: möglich.
-- Azure Log Analytics Workspace: Logs werden Entwicklung: 30; Test: 30; Echtbetrieb: 90 Tage aufbewahrt.
+- Azure Log Analytics Workspace: Logs werden Entwicklung: 30; Test: 30; Echtbetrieb: 90 Tage aufbewahrt. _(außerhalb der Produktion günstiger)_
 - Azure Virtual Network: Das Netz nutzt den Adressbereich Entwicklung: 10.100.0.0/22; Test: 10.100.4.0/22; Echtbetrieb: 10.100.8.0/22.
 
 ## Was aus euren Antworten folgt
 
+- **Die Teile einer Stufe liegen verteilt auf mehrere Ressourcengruppen.** _(aus eurer Beschreibung)_
+- **Die Infrastruktur legt diese Ressourcengruppen an: Netzwerk, Daten, Anwendung, Überwachung, Sicherheit. Alle anderen existieren bereits und werden nur verwendet.** _(eure Antwort)_
 - **Ressourcen, die Daten halten, tragen in der Produktion eine Löschsperre.** _(eure Antwort)_
 - **Das System wird durch GitHub Actions ausgerollt.** _(eure Antwort)_
 - **Das Netz wird von diesem Ausrollen frei gewählt, ohne Verbindung zum Firmennetz und ohne VPN.** _(eure Antwort)_
@@ -59,14 +62,9 @@ Nichts davon wurde gefragt; jede Zeile folgt einer Regel oder einer der Antworte
 
 ### Für das ganze System
 
-- Diese Bereiche erhalten eine eigene Ressourcengruppe: Netzwerk, Daten, Überwachung. Alles andere liegt in der Hauptgruppe.
-- Die Hauptressourcengruppe wird zusammen mit dem System angelegt.
-- Die Ressourcengruppe für das Netzwerk wird zusammen mit dem System angelegt.
-- Die Ressourcengruppe für die Daten wird zusammen mit dem System angelegt.
-- Die Ressourcengruppe für die Überwachung wird zusammen mit dem System angelegt.
 - Die Pipeline meldet sich mit einem kurzlebigen Token pro Lauf, ohne irgendwo gespeichertes Passwort bei Azure an.
 - Eine Person gibt die Änderung frei, bevor sie ausgerollt wird: nur im Echtbetrieb.
-- Wer ausrollt, braucht neben dem Recht, die Ressourcen zu ändern: Contributor (subscription). — weil: Die Hauptressourcengruppe wird zusammen mit dem System angelegt.
+- Wer ausrollt, braucht neben dem Recht, die Ressourcen zu ändern: Contributor (subscription). — weil: Die Infrastruktur legt diese Ressourcengruppen an: Netzwerk, Daten, Anwendung, Überwachung, Sicherheit. Alle anderen existieren bereits und werden nur verwendet.
 - Passwörter und Zugriffsschlüssel sind abgeschaltet; der Zugriff läuft über Firmenkonten, damit jede Aktion zuordenbar ist.
 
 ### Sicherheit
@@ -91,9 +89,9 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 
 - Das Gateway ist die Stufe Entwicklung: eine Teststufe ohne Verfügbarkeitszusage; Test: eine Teststufe ohne Verfügbarkeitszusage; Echtbetrieb: Premium, mit Zonen, mehreren Regionen und Netzwerkeinbindung.
 - Die Instanz hat eine eigene Identität.
-- Das Gateway ist nur im privaten Netz.
 - Aufrufer melden sich an mit ihrem Firmenkonto.
 - APIs: orders (backend: function-app) (leer: noch keine).
+- Das Gateway ist nur im privaten Netz.
 
 ### Azure Functions (function app on Flex Consumption or Elastic Premium)
 
@@ -102,16 +100,16 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 ### Azure Service Bus namespace
 
 - Zugriffsschlüssel und Verbindungszeichenfolgen sind abgeschaltet.
-- Themen und ihre Abonnenten: orders (subscriptions: billing, shipping, audit, filter: order-type) (leer: keine).
 - Warteschlangen: payments (dead_lettering: ja, duplicate_detection: ja) (leer: keine).
+- Themen und ihre Abonnenten: orders (subscriptions: billing, shipping, audit, filter: order-type) (leer: keine).
 
 ### Azure Event Hubs namespace
 
-- Der Dienst (namespace) ist aus dem Internet überhaupt nicht erreichbar.
 - Der Datenstrom kann von bis zu 4 Lesern gleichzeitig verarbeitet werden.
 - Ereignisse bleiben 7 Tag(e) lesbar.
 - Jedes Ereignis wird zusätzlich als Dateien im Speicher archiviert.
 - Das Archiv geht in das Speicherkonto storage-account.
+- Der Dienst (namespace) ist aus dem Internet überhaupt nicht erreichbar.
 
 ### Azure Event Grid custom topic
 
@@ -162,20 +160,33 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 - In welche Subscription wird jede Stufe ausgerollt? [Entwicklung, Test, Echtbetrieb] _(gebraucht von: Workload-Owner)_ — blockiert: apply
 - Wem gehören die privaten DNS-Zonen, und gibt es zentrale? _(gebraucht von: Plattform-Team)_ — blockiert: apply
 
+## Wer greift worauf zu
+
+Die Verbindungen zwischen den Teilen, die Rechte, die ein Teil auf einem anderen hat, und woher ein Geheimnis gelesen wird.
+
+**Verbindungen**
+
+- Internet → Öffentlicher Eingang mit WAF: HTTPS 443
+- Öffentlicher Eingang mit WAF → WAF vor APIM: HTTPS, nur Front Door
+- WAF vor APIM → API-Schicht: HTTPS intern
+- API-Schicht → Bestell-Backend: Backend-Routing
+- Bestell-Backend → Bestellnachrichten: Entra-Login
+- Telemetrie → Telemetrie-Ablage: Capture
+- Blob-Events → Bestell-Backend: Blob-Events
+- Telemetrie-Ablage → Blob-Events: Blob-Events
+- Blob-Backup → Telemetrie-Ablage: Blob-Backup
+
 ## Anhang: alle Entscheidungen
 
 | Schlüssel | Wert | Quelle |
 |---|---|---|
-| `deployment.resource_group_split` | ["network", "data", "observability"] | eure Antwort |
-| `deployment.resource_group_mode_main` | create | eure Antwort |
-| `deployment.resource_group_mode_network` | create | eure Antwort |
-| `deployment.resource_group_mode_data` | create | eure Antwort |
-| `deployment.resource_group_mode_observability` | create | eure Antwort |
+| `deployment.resource_group_layout` | split | eure Beschreibung |
+| `deployment.resource_groups_created` | ["network", "data", "application", "observability", "security"] | eure Antwort |
 | `deployment.resource_lock` | production | eure Antwort |
 | `deployment.deploy_mechanism` | github | eure Antwort |
 | `deployment.pipeline_auth` | workload_identity | Regel |
 | `deployment.pipeline_approvals` | production | Regel |
-| `deployment.deployer_roles` | [{"role": "Contributor", "scope": "subscription", "for": ["deployment.resource_group_mode_main", "deployment.resource_group_mode_network", "deployment.resource_group_mode_data", "deployment.resource_group_mode_observability"]}] | erzwungen |
+| `deployment.deployer_roles` | [{"role": "Contributor", "scope": "subscription", "for": ["deployment.resource_groups_created"]}] | erzwungen |
 | `deployment.network_requirements` | free | eure Antwort |
 | `deployment.outage_impact` | tolerable | eure Antwort |
 | `deployment.data_loss_tolerance` | one_month | eure Antwort |
@@ -188,41 +199,52 @@ Solange diese Punkte offen sind, wird nichts ausgerollt.
 | `deployment.local_auth` | disabled | eure Beschreibung |
 | `deployment.mandates` | [] | eure Antwort |
 | `deployment.log_retention_days` | {"development": 30, "test": 30, "production": 90} | eure Beschreibung |
+| `front-door.meta.purpose` | Öffentlicher Eingang mit WAF | eure Beschreibung |
 | `front-door.profile.sku` | Premium_AzureFrontDoor | eure Beschreibung |
-| `front-door.security.waf_managed_rules` | true | eure Beschreibung |
+| `front-door.delivery.origins` | application-gateway | eure Beschreibung |
 | `front-door.delivery.origin_connection` | public | eure Abweichung |
-| `front-door.delivery.origins` | ["application-gateway"] | eure Beschreibung |
+| `front-door.security.waf_managed_rules` | true | eure Beschreibung |
+| `application-gateway.meta.purpose` | WAF vor APIM | eure Beschreibung |
 | `application-gateway.gateway.waf_enabled` | true | eure Beschreibung |
 | `application-gateway.networking.frontend_exposure` | public | eure Abweichung |
+| `api-management.meta.purpose` | API-Schicht | eure Beschreibung |
 | `api-management.service.sku` | {"development": "Developer", "test": "Developer", "production": "Premium"} | eure Beschreibung |
 | `api-management.service.managed_identity` | system_assigned | eure Beschreibung |
-| `api-management.networking.network_integration` | internal | eure Beschreibung |
 | `api-management.access.caller_authentication` | entra_id | eure Beschreibung |
 | `api-management.access.apis` | [{"name": "orders", "backend": "function-app"}] | eure Beschreibung |
+| `api-management.networking.network_integration` | internal | eure Beschreibung |
+| `function-app.meta.purpose` | Bestell-Backend | eure Beschreibung |
 | `function-app.networking.public_network_access` | disabled | übernommen |
+| `service-bus.meta.purpose` | Bestellnachrichten | eure Beschreibung |
 | `service-bus.namespace.sku` | {"development": "Standard", "test": "Standard", "production": "Premium"} | eure Abweichung |
 | `service-bus.namespace.local_auth` | disabled | eure Beschreibung |
-| `service-bus.networking.public_network_access` | {"development": "enabled_with_firewall", "test": "enabled_with_firewall", "production": "disabled"} | eure Abweichung |
-| `service-bus.entities.topics` | [{"name": "orders", "subscriptions": ["billing", "shipping", "audit"], "filter": "order-type"}] | eure Beschreibung |
 | `service-bus.entities.queues` | [{"name": "payments", "dead_lettering": true, "duplicate_detection": true}] | eure Beschreibung |
-| `event-hubs.networking.public_network_access` | disabled | übernommen |
+| `service-bus.entities.topics` | [{"name": "orders", "subscriptions": ["billing", "shipping", "audit"], "filter": "order-type"}] | eure Beschreibung |
+| `service-bus.networking.public_network_access` | {"development": "enabled_with_firewall", "test": "enabled_with_firewall", "production": "disabled"} | eure Abweichung |
+| `event-hubs.meta.purpose` | Telemetrie | eure Beschreibung |
 | `event-hubs.entities.partition_count` | 4 | eure Beschreibung |
 | `event-hubs.entities.message_retention_days` | 7 | eure Beschreibung |
 | `event-hubs.entities.event_archive` | true | eure Beschreibung |
 | `event-hubs.entities.archive_storage_account` | storage-account | eure Beschreibung |
+| `event-hubs.networking.public_network_access` | disabled | übernommen |
+| `event-grid-topic.meta.purpose` | Blob-Events | eure Beschreibung |
 | `event-grid-topic.topic.managed_identity` | system_assigned | eure Beschreibung |
 | `event-grid-topic.delivery.event_subscriptions` | [{"name": "blob-events", "source": "storage-account", "target": "function-app"}] | eure Beschreibung |
+| `storage-account.meta.purpose` | Telemetrie-Ablage | eure Beschreibung |
 | `storage-account.networking.public_network_access` | disabled | übernommen |
-| `storage-account.security.shared_access_key_enabled` | false | übernommen |
+| `storage-account.security.local_auth` | disabled | übernommen |
 | `storage-account.data_protection.hierarchical_namespace` | true | eure Beschreibung |
+| `backup-vault.meta.purpose` | Blob-Backup | eure Beschreibung |
 | `backup-vault.vault.storage_redundancy` | {"development": "LocallyRedundant", "test": "LocallyRedundant", "production": "GeoRedundant"} | eure Beschreibung |
 | `backup-vault.vault.cross_region_restore` | {"development": false, "test": false, "production": true} | eure Abweichung |
 | `backup-vault.protection.protected_resources` | [{"name": "storage-account", "kind": "blob"}] | eure Beschreibung |
+| `recovery-services-vault.meta.purpose` | VM-Backup | eure Beschreibung |
 | `recovery-services-vault.vault.storage_redundancy` | {"development": "LocallyRedundant", "test": "LocallyRedundant", "production": "GeoRedundant"} | eure Beschreibung |
 | `recovery-services-vault.vault.cross_region_restore` | {"development": false, "test": false, "production": true} | eure Abweichung |
 | `recovery-services-vault.vault.soft_delete` | Enabled | eure Beschreibung |
+| `log-analytics-workspace.meta.purpose` | Zentrale Logs | eure Beschreibung |
 | `log-analytics-workspace.cost.retention_days` | {"development": 30, "test": 30, "production": 90} | eure Beschreibung |
+| `key-vault.meta.purpose` | Secrets | eure Beschreibung |
 | `key-vault.vault.rbac_authorization` | true | übernommen |
 | `virtual-network.addressing.address_space` | {"development": "10.100.0.0/22", "test": "10.100.4.0/22", "production": "10.100.8.0/22"} | eure Antwort |
-| `wiring.access` | [{"from": "internet", "to": "front-door", "label": "HTTPS 443"}, {"from": "front-door", "to": "application-gateway", "label": "HTTPS, nur Front Door"}, {"from": "application-gateway", "to": "api-management", "label": "HTTPS intern"}, {"from": "api-management", "to": "function-app", "label": "Backend-Routing"}, {"from": "function-app", "to": "service-bus", "label": "Entra-Login"}, {"from": "event-hubs", "to": "storage-account", "label": "Capture"}, {"from": "event-grid-topic", "to": "function-app", "label": "Blob-Events"}, {"from": "storage-account", "to": "event-grid-topic", "label": "Blob-Events"}, {"from": "backup-vault", "to": "storage-account", "label": "Blob-Backup"}] | eure Beschreibung |
-| `wiring.purposes` | {"front-door": "Öffentlicher Eingang mit WAF", "application-gateway": "WAF vor APIM", "api-management": "API-Schicht", "function-app": "Bestell-Backend", "service-bus": "Bestellnachrichten", "event-hubs": "Telemetrie", "event-grid-topic": "Blob-Events", "storage-account": "Telemetrie-Ablage", "backup-vault": "Blob-Backup", "recovery-services-vault": "VM-Backup", "log-analytics-workspace": "Zentrale Logs", "key-vault": "Secrets"} | eure Beschreibung |
+| `wiring.access` | Internet → Öffentlicher Eingang mit WAF: HTTPS 443; Öffentlicher Eingang mit WAF → WAF vor APIM: HTTPS, nur Front Door; WAF vor APIM → API-Schicht: HTTPS intern; API-Schicht → Bestell-Backend: Backend-Routing; Bestell-Backend → Bestellnachrichten: Entra-Login; Telemetrie → Telemetrie-Ablage: Capture; Blob-Events → Bestell-Backend: Blob-Events; Telemetrie-Ablage → Blob-Events: Blob-Events; Blob-Backup → Telemetrie-Ablage: Blob-Backup | eure Beschreibung |

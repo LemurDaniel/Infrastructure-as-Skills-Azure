@@ -22,6 +22,7 @@ boundaries:
   - "Does not render secret values. There is no Key Vault reference for a container group's environment: a secret is read by the container itself with its identity, never put in a template."
   - "Does not render volumes (Azure Files shares need the storage account key), several containers or init containers, probes, GPU, Windows containers, spot priority, confidential or dedicated SKUs, container group profiles, standby pools, custom DNS servers or DNS name labels. Each is a separate concern and has no question set yet."
   - "Does not make a container group zone-redundant: a group lives in one zone. Spreading over zones is several groups behind a load balancer, a pattern."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -302,22 +303,6 @@ groups:
           credential in the template and in state. Empty is a public image. A registry with a
           private endpoint needs a route and its DNS from the group's subnet; a registry with a
           firewall needs the group's outbound address allowed or the trusted-service bypass.
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage the group?"
-          de: "Wer darf die Gruppe verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the group granted to: {value}."
-          de: "Verwaltungsrechte an der Gruppe vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the group - the control plane, including who may read its logs and run
-          `az container exec`, which opens a shell in the running container. Usually the deploying
-          principal's alone, so empty is a normal answer. **The Bicep module has no role
-          assignment parameter**: the render writes the assignment beside the module.
 
   # ----------------------------------------------------------------- security
   - id: security

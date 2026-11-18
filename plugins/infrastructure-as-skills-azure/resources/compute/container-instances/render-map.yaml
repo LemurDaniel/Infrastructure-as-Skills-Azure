@@ -148,12 +148,6 @@ decisions:
       passthrough: true
       note: with identity, the identity's resource id - never username / password; empty omits the parameter
     bicep: { attribute: 'properties.imageRegistryCredentials[].server', passthrough: true, note: with identity; empty renders no credential }
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform: { attribute: azurerm_role_assignment, note: scope = the group's id }
-    bicep_avm:
-      gap: module README 0.7.1 has no input for role assignments; a Microsoft.Authorization/roleAssignments resource beside the module, scoped to the group, by role definition id
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the group }
 
   # ----------------------------------------------------------------- security
   security.key_management:

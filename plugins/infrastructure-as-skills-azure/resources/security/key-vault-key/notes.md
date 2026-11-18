@@ -33,6 +33,17 @@ The vault, the key writer's role on the vault (a data-plane write needs it, see
 key's consumer takes a **user-assigned** identity whose role on the key is granted before the
 consumer exists - system-assigned would make the consumer depend on itself.
 
+## Roles
+
+A role on one key is a `wiring.role_assignments` entry with this key resource as `to` -
+scoped to the key (its versionless id), not the vault: `Key Vault Crypto Service Encryption
+User` for a service that wraps and unwraps (storage, SQL, disks), `Key Vault Crypto User`
+for an application that encrypts, decrypts, signs or verifies, `Key Vault Crypto Officer`
+for the pipeline or person that creates and rotates it.
+
+The consumer of a customer-managed key is named as `from` by its user-assigned identity, so
+the role exists before the consumer does.
+
 ## Pitfalls
 
 **A consumer pinned to a version breaks on rotation.** Services that follow the key's latest version

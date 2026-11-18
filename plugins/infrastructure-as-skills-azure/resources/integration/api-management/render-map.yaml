@@ -224,17 +224,6 @@ decisions:
       attribute: Microsoft.Network/privateEndpoints properties.subnet.id
       note: "authored child; (source: bicep build, Microsoft.Network/privateEndpoints@2024-05-01)"
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform:
-      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
-      note: "one per entry, scope = the service id (source: azurerm 5.12 schema)"
-    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
-      note: "one per entry, scoped to the service; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
-
   # ----------------------------------------------------------------- security
   security.legacy_protocols_disabled:
     terraform_avm:

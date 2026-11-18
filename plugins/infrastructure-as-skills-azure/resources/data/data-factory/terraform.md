@@ -93,7 +93,7 @@ module "adf" {
     }
   }
 
-  # decision: data-factory.identity.role_assignments
+  # decision: wiring.role_assignments
   role_assignments = {}
 
   enable_telemetry = true
@@ -148,8 +148,8 @@ and the identity in `managed_identities`; Azure DevOps replaces `github_configur
 `create_key_only` adds `integration_runtime_self_hosted = { shir = { name = "shir-onprem" } }`; the
 key is read after the apply with an `azapi_resource_action` (`listAuthKeys` on the runtime's id)
 whose output goes into a Key Vault secret, never into a root output. `source_access` is a
-`role_assignments` entry on each source's module with
-`principal_id = module.adf.resource.identity[0].principal_id` - rendered beside the source, not
+`wiring.role_assignments` entry per source with the factory as `from`
+(`principal_id = module.adf.resource.identity[0].principal_id`) - rendered at the source, not
 here. Managed private endpoint connections are approved on the source
 (`az network private-endpoint-connection approve`) by the pipeline where this deployment owns it.
 

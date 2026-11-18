@@ -20,6 +20,7 @@ boundaries:
   - "Does not enable Microsoft Defender for open-source relational databases as a subscription plan: that is subscription-wide and the platform's."
   - "Does not create database roles or grant privileges: that is SQL, not Azure Resource Manager. Entra roles are recorded as a decision and created by a step after the deployment."
   - "Does not render read replicas, virtual endpoints, major-version upgrades, the connection pooler's tuning, extensions beyond the allow-list, or pgAudit settings - each carries decisions of its own."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -471,21 +472,6 @@ groups:
           (`CONNECT`, `SELECT`, never superuser-like roles). A pattern fills this from the
           consumers it knows.
 
-      - id: role_assignments
-        ask:
-          en: "Who may manage the server itself?"
-          de: "Wer darf den Server selbst verwalten?"
-        type: list
-        plain:
-          en: "Management rights on the server granted to: {value}."
-          de: "Verwaltungsrechte am Server vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Azure RBAC on the server - the control plane: scaling, restarting, changing
-          parameters. Separate from the database roles on purpose, and usually the
-          deploying principal's alone, so empty is a normal answer.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
@@ -510,7 +496,7 @@ groups:
           the provider's - password on - and the Bicep module's is Entra on and password
           off; the block is written on every call.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which is the oldest TLS version the server accepts?"
           de: "Welche ist die älteste TLS-Version, die der Server annimmt?"
@@ -518,8 +504,8 @@ groups:
         plain:
           en: "Connections must use {value} or newer."
           de: "Verbindungen müssen {value} oder neuer verwenden."
-        accepts: [TLSv1.2, TLSv1.3]
-        default: TLSv1.2
+        accepts: ["1.2", "1.3"]
+        default: "1.2"
         why: >
           TLS 1.2 is the floor of the guardrails and what every current driver speaks.
           Encryption in transit is not a decision: `require_secure_transport` is always

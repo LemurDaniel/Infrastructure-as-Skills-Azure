@@ -31,6 +31,18 @@ A runbook that must reach a private endpoint (a database, a key vault with publi
 disabled) runs on a hybrid worker. In a sandbox it fails with a name-resolution or a
 connection error, not with an access error, which is why it is misread as a role problem.
 
+## Roles
+
+A role on the account is a `wiring.role_assignments` entry with it as `to`. It says who may
+author, start and read jobs: `Automation Contributor` for the team that deploys runbooks,
+`Automation Operator` or `Automation Job Operator` for whoever starts them, `Reader` for job
+output. Contributor on the account lets someone change a runbook that runs with the
+account's identity, which is the identity's rights in someone else's hands - give it
+narrowly.
+
+The roles the account's identity needs on what its runbooks manage (stopping VMs, rotating
+secrets) are entries with the account as `from`.
+
 ## Pitfalls
 
 **Local authentication off breaks webhooks.** With `disableLocalAuth` a webhook returns an
@@ -42,8 +54,8 @@ access off; Bicep turns local authentication off and leaves public access unset 
 private endpoints are given). Every decision is written on the call.
 
 **Contributor on the account is the identity's rights.** Anyone who can edit a runbook can run
-code as the account's identity; the review of `role_assignments` is a review of the identity's
-roles, too.
+code as the account's identity; a review of the roles on the account (`wiring.role_assignments`
+with the account as `to`) is a review of the identity's roles, too.
 
 **Runbook output is logged.** `JobStreams` sends what a runbook writes to the workspace - a
 `Write-Output` of a secret ends up there. Runbooks read secrets from Key Vault and never print

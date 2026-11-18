@@ -17,6 +17,14 @@ the application team's side. For a private bot: the two private DNS zones, the t
 endpoints, and the application's VNet integration so its outbound to the Bot Framework also goes
 the private way. The workspace before the diagnostic setting.
 
+## Roles
+
+A role on the bot is a `wiring.role_assignments` entry with it as `to`. The bot has no data
+plane to grant: the roles are for whoever edits the channels (`Contributor` on the bot,
+scoped to it, for the application team's pipeline) and reads the configuration (`Reader`).
+The application's identity needs no role on the bot - it authenticates as the app identity,
+not through RBAC.
+
 ## Pitfalls
 
 **There is no Bicep module.** `avm/res/bot-service/bot-service` is `Proposed` and unpublished;

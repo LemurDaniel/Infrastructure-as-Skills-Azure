@@ -299,7 +299,7 @@ groups:
           in Key Vault, for a name Front Door cannot validate or a mandate that names the
           issuer; then the renewal is the owner's job and an expiry takes the site down.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which TLS version is the lowest a visitor may use?"
           de: "Welche ist die niedrigste TLS-Version, die ein Besucher verwenden darf?"
@@ -308,10 +308,10 @@ groups:
           en: "Visitors must use at least TLS {value}."
           de: "Besucher müssen mindestens TLS {value} verwenden."
         plain_values:
-          TLS10: { en: "1.0", de: "1.0" }
-          TLS12: { en: "1.2", de: "1.2" }
-        accepts: [TLS10, TLS12]
-        default: TLS12
+          "1.0": { en: "1.0", de: "1.0" }
+          "1.2": { en: "1.2", de: "1.2" }
+        accepts: ["1.0", "1.2"]
+        default: "1.2"
         depends_on: { question: custom_domains, not_equals: [] }
         why: >
           1.2 is the guardrails' floor; the platform still accepts 1.0 on a custom domain,

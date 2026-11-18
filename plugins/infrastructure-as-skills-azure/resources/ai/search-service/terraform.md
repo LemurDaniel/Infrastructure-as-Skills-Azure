@@ -62,7 +62,7 @@ module "search" {
 
   managed_identities = { system_assigned = true }
 
-  # decision: search-service.security.local_authentication_disabled - inverse input
+  # decision: search-service.security.local_auth - `disabled` is false on the input
   local_authentication_enabled = false
 
   role_assignments = {

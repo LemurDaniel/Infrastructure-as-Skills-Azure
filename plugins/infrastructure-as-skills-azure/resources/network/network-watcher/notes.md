@@ -35,6 +35,14 @@ auto-creation is disabled by policy and no watcher exists.
 Deletion runs the other way; a flow log whose storage account was deleted first stays in a failed
 state until it is removed.
 
+## Roles
+
+A role on the watcher is a `wiring.role_assignments` entry with it as `to`. Packet capture,
+next hop, IP flow verify and the topology view are actions on the watcher; an operations
+group that runs them without being Contributor on the subscription holds `Network
+Contributor` on the watcher (there is no narrower built-in role). Under `platform` the
+watcher is Azure's and the platform's RBAC applies, so the spec has no entry.
+
 ## Pitfalls
 
 **The flow log lives in `NetworkWatcherRG`, not in the deployment's group.** It is a child of the

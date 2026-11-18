@@ -43,4 +43,5 @@ customer-managed key: each is fixed or one-way, and each question set says which
 
 **A data store has two permission systems when it is a service with its own data roles.**
 Azure RBAC governs the account; the service's own roles govern the data. A deployment that
-grants only the first has a working account nobody can read.
+grants only the first has a working account nobody can read. Both are `wiring.role_assignments`
+entries on the account; the role's name says which system it belongs to.

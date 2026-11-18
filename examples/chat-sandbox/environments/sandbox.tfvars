@@ -41,7 +41,7 @@ model_deployments = {
   }
 }
 
-# resources.<resource>.identity.role_assignments, sandbox
+# wiring.role_assignments, sandbox
 role_assignments = {
   foundry = [
     { principal = "app-service", role = "Cognitive Services OpenAI User" },

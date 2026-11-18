@@ -14,6 +14,17 @@ The account first, then the container, then its role assignments, then the consu
 account module the container is part of the account's call and the order is internal; the
 roles on the container need the principal, which the identity set creates before.
 
+## Roles
+
+A role on a container is a `wiring.role_assignments` entry with this container resource as
+`to` - narrower than one on the account, and the scope to prefer where the consumer reads or
+writes one container. Data-plane access is granted by role, never by key: `Storage Blob Data
+Reader` to read, `Storage Blob Data Contributor` to read and write, `Storage Blob Data
+Owner` to also set access control. Never the subscription.
+
+The deploying principal needs `Storage Blob Data Contributor` when the render creates the
+container through the data plane.
+
 ## Pitfalls
 
 **Anonymous access is two switches.** The container's `public_access` and the account's

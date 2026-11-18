@@ -42,7 +42,7 @@ resource federatedCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/f
   }
 ]
 
-// decision: user-assigned-identity.identity.role_assignments
+// decision: wiring.role_assignments
 resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
   for ra in roleAssignments: {
     name: guid(identity.id, ra.principalId, ra.roleDefinitionId)

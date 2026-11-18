@@ -193,13 +193,6 @@ decisions:
       format: { expr: 'toObject([{value}], id => id, id => {})' }
       note: "an object keyed by the id - type: 'UserAssigned' (source: bicep build, Microsoft.DataProtection/backupVaults@2025-09-01)"
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform: { attribute: azurerm_role_assignment, note: scope = the vault's id }
-    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the vault }
-
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform_avm: { attribute: 'diagnostic_settings.<key>.workspace_resource_id' }

@@ -490,7 +490,7 @@ decisions:
     terraform_avm:
       module: Azure/avm-res-web-site/azurerm
       attribute: application_insights_connection_string
-      note: the component's connection string output, not its id; with app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD" (;ClientId=<client id> user-assigned - the role a role_assignments entry on the component) while local auth is off; becomes the APPLICATIONINSIGHTS_CONNECTION_STRING app setting - the module creates no component; on every slot too, as deployment_slots.<name>.site_config.application_insights_connection_string and its app_settings; omitted while empty
+      note: the component's connection string output, not its id; with app_settings.APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD" (;ClientId=<client id> user-assigned - the role a wiring.role_assignments entry on the component) while local auth is off; becomes the APPLICATIONINSIGHTS_CONNECTION_STRING app setting - the module creates no component; on every slot too, as deployment_slots.<name>.site_config.application_insights_connection_string and its app_settings; omitted while empty
     terraform: { gap: "azurerm_linux_web_app has no Application Insights argument (azurerm 5.12 schema); it is an app_settings entry whose key its docs do not name" }
     bicep_avm:
       module: avm/res/web/site
