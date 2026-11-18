@@ -120,6 +120,7 @@ BACKEND_SPELLINGS = [
     'shared_access_key_enabled_bool', 'https_traffic_only_enabled',
     'allowBlobPublicAccess', 'publicNetworkAccess', 'allowSharedKeyAccess',
     'supportsHttpsTrafficOnly', 'minimumTlsVersion', 'requireInfrastructureEncryption',
+    'shared_access_key_enabled', 'local_authentication_disabled', 'minimum_tls_version',
 ]
 
 HERE = os.path.dirname(os.path.abspath(__file__))

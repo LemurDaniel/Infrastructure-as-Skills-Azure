@@ -168,7 +168,7 @@ supports disabling local auth, disable it:
 
 | Resource | The switch |
 |---|---|
-| Storage account | `shared_access_key_enabled: false` |
+| Storage account | `local_auth: disabled` |
 | Key Vault | `rbac_authorization: true` (not access policies) |
 | App Service | FTP and SCM basic publishing credentials disabled; both switches, they are separate |
 | Service Bus / Event Hub | local auth disabled |

@@ -484,7 +484,7 @@ resource, in two halves:
 Resolve it once and every resource inherits it. A resource question carrying
 `answer: { deployment: <id> }` is answered from there and never asked again - with its `map`, in the
 question's own values, which the interview digest prints (`network_exposure: private` is
-`public_network_access: disabled`, `local_auth: disabled` is `shared_access_key_enabled: false`);
+`public_network_access: disabled`, `local_auth: allowed_where_unavoidable` is a namespace's `local_auth: enabled`);
 never translated by hand. Eight resources in
 one run must not produce eight separate exposure answers, and a system is not private
 because seven of them are.
@@ -689,7 +689,7 @@ the sum of the subnets, and the subnets follow from the compute (`app_runtime`,
 question takes its derived value or its default; a `required` question of either
 kind that nothing answers becomes an `open:` entry with its owner named, and Phase 4
 says so. Put the batch in the customer's words — the `ask` texts of the `requirements`
-group are written for that — and never a decision's vocabulary (`ZRS`, `TLS1_2`, a
+group are written for that — and never a decision's vocabulary (`ZRS`, `enabled_with_firewall`, a
 subnet) in a question to a customer.
 
 Phase 1 asks nothing: the target was Phase 0's first question and the layout is read

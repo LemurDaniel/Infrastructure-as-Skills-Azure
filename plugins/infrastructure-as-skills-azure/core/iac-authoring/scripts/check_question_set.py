@@ -50,6 +50,11 @@ a regex cannot see - what references/question-set-format.md promises:
      type its single set creates - a kind nobody defines checks nothing in a spec.
  11. `exclusive: true` stands only on a list of references: a part it names is claimed
      by at most one resource of the set (check_spec.py enforces it on a spec).
+ 12. Shared vocabulary, in a resource set: a cross-cutting decision has one id and decision
+     words as values. `local_auth` is an enum accepting exactly `disabled` and `enabled`;
+     `min_tls_version` is an enum of plain version numbers ("1.0" to "1.3"); a backend's
+     spelling of either (`local_authentication_disabled`, `shared_access_key_enabled`,
+     `access_keys_authentication_disabled`, `minimum_tls_version`) is refused as an id.
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
 rather than pretending the files are fine.
@@ -91,6 +96,16 @@ NO_SAVINGS_GROUPS = {'security', 'networking', 'identity', 'access', 'dns', 'com
 DERIVED_KEYS = {'question', 'map'}
 ANSWER_FORMS = ({'deployment'}, {'deployment', 'map'}, {'context'}, DERIVED_KEYS)
 KNOWN_TOP = {'schema_version', 'scope', 'resource', 'title', 'naming', 'boundaries', 'groups'}
+# The shared vocabulary of resource sets (question-set-format.md): a backend's spelling of a
+# cross-cutting decision, and the canonical id it is asked under.
+RETIRED_IDS = {
+    'local_authentication_disabled': 'local_auth',
+    'shared_access_key_enabled': 'local_auth',
+    'access_keys_authentication_disabled': 'local_auth',
+    'minimum_tls_version': 'min_tls_version',
+}
+LOCAL_AUTH_VALUES = ['disabled', 'enabled']
+TLS_VERSIONS = ['1.0', '1.1', '1.2', '1.3']
 
 COLORS = {'cyan': '36', 'green': '32', 'red': '31', 'yellow': '33', 'gray': '90'}
 USE_COLOR = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
@@ -277,6 +292,17 @@ def check_set(path, doc, deployment, rel):
 
         acc = q.get('accepts')
         values = accepted(q)
+        if scope == 'resource':
+            # One id and one set of decision words per cross-cutting decision: a spec, a pattern
+            # and a reviewer read the same key on every resource, and the backend's literal
+            # stays in render-map.yaml.
+            if qid in RETIRED_IDS:
+                err(f"{where}: '{qid}' is a backend's spelling of a shared decision - the id is '{RETIRED_IDS[qid]}'")
+            if qid == 'local_auth' and (qtype != 'enum' or values != LOCAL_AUTH_VALUES):
+                err(f"{where}: local_auth is an enum accepting exactly [{', '.join(LOCAL_AUTH_VALUES)}]")
+            if qid == 'min_tls_version' and (qtype != 'enum' or values is None or not set(values) <= set(TLS_VERSIONS)):
+                err(f"{where}: min_tls_version is an enum of plain version numbers as quoted strings, "
+                    f"a subset of {', '.join(TLS_VERSIONS)}")
         if acc is not None and not (isinstance(acc, list) and acc) and not (
                 isinstance(acc, dict) and set(acc) in ACCEPTS_FORMS and all(isinstance(v, str) and v for v in acc.values())):
             err(f"{where}: accepts must be a non-empty list of values, {{ ref: <kind> }} or {{ catalogue: <file> }}")

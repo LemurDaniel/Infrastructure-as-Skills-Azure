@@ -292,11 +292,11 @@ resources:
         value: disabled
         source: deployment
     security:
-      shared_access_key_enabled:
-        value: false
+      local_auth:
+        value: disabled
         source: deployment
       min_tls_version:
-        value: TLS1_2
+        value: '1.2'
         source: default
     data_protection:
       replication:
@@ -412,7 +412,7 @@ the spec is then either **one value for every stage** (a scalar, a list, a refer
 
 ```yaml
       min_tls_version:  # one value: a literal in the template, the same in every stage
-        value: TLS1_2
+        value: '1.2'
         source: default
       replication:      # a map: a parameter, each stage's value in its stage file
         value:

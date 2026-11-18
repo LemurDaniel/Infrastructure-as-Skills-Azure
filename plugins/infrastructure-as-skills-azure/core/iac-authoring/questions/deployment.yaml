@@ -1470,7 +1470,7 @@ groups:
           consumer that genuinely cannot do managed identity, and names which
           resource it applies to rather than relaxing the whole deployment.
         renders: >
-          pre-answers shared_access_key_enabled, rbac_authorization, Entra-only
+          pre-answers each resource's local_auth, rbac_authorization, Entra-only
           authentication and the equivalent switch per resource
 
   - id: compliance

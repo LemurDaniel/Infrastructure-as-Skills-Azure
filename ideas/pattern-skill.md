@@ -20,7 +20,7 @@ with the next minor.
   repository's secret scan reads `secret: <value>` as a credential.
 - **A pattern pre-answers less than the sketch showed.** Never a question the customer is
   asked, one a requirement derives, or one that inherits a deployment decision; the sketch's
-  `storage-account.shared_access_key_enabled` is the last kind. What is left: defaults the
+  `storage-account.local_auth` is the last kind. What is left: defaults the
   wiring depends on, required references between parts, lists the sets say a pattern fills.
 - **`when` conditions read the pattern's own asks only**, and a part is a fixed spec key.
   `ai-chat-rag` and `private-webapp` are therefore App Service systems; several containers
@@ -85,7 +85,7 @@ asks:                        # pattern-level interview questions, same fields as
     ...
 pre_answers:                 # resource -> question id -> value, each with a why
   storage-account:
-    shared_access_key_enabled: { value: false, why: ... }
+    local_auth: { value: disabled, why: ... }
 wiring:
   access: [{ from, to, label }]
   role_assignments: [{ principal, scope, role }]   # built-in role names only
