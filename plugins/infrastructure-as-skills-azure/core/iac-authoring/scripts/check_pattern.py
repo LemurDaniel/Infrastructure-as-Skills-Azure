@@ -211,7 +211,7 @@ def check_value(where, value, q, parts, kinds, err):
     qtype = q.get('type')
     ref_kind = spec_ref.kind_of(q)
     if ref_kind:
-        allowed = (kinds.get(ref_kind) or {}).get('sets')
+        allowed = spec_ref.set_of(kinds.get(ref_kind))
         refs = spec_ref.items(value)
         if qtype == 'list' and not isinstance(value, list):
             err(f"{where}: a list of references, each {{ resource: <part> }}")
@@ -220,8 +220,8 @@ def check_value(where, value, q, parts, kinds, err):
                 err(f"{where}: a reference in a pattern is {{ resource: <part> }} - a pattern knows no resource outside itself")
             elif r['resource'] not in parts:
                 err(f"{where}: references '{r['resource']}', which is not a part of the pattern")
-            elif isinstance(allowed, list) and lib.kind(r['resource']) not in allowed:
-                err(f"{where}: references '{r['resource']}', but a {ref_kind} is one of {', '.join(allowed) or 'no set of the plugin'}")
+            elif allowed != 'any' and lib.kind(r['resource']) != allowed:
+                err(f"{where}: references '{r['resource']}', but a {ref_kind} is a resource of {allowed or 'no set of the plugin'}")
         return
     if not check_question_set.kind_matches(qtype, value):
         err(f"{where}: value {value!r} is not a {qtype}")

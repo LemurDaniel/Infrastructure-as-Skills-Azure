@@ -67,11 +67,12 @@ _PART_KINDS = None
 
 
 def part_kinds(yaml):
-    """ref-kinds.yaml's kind -> its part (None where the kind is a whole resource)."""
+    """ref-kinds.yaml's kind -> the question that lists its parts (None where the kind is a
+    whole resource)."""
     global _PART_KINDS
     if _PART_KINDS is None:
         with open(REF_KINDS, encoding='utf-8') as f:
-            _PART_KINDS = {k: (v or {}).get('part') for k, v in ((yaml.safe_load(f) or {}).get('kinds') or {}).items()}
+            _PART_KINDS = {k: (v or {}).get('listed_in') for k, v in ((yaml.safe_load(f) or {}).get('kinds') or {}).items()}
     return _PART_KINDS
 
 

@@ -61,7 +61,7 @@ PATTERN_MUTATIONS = [
     ('a value the question does not accept', "    managed_identity:\n      value: user_assigned\n", "    managed_identity:\n      value: federated\n", "is not in the question's accepts"),
     ('an answer without its why', "      why: The host keeps its keys and locks in a storage account of its own.\n", "      why: needed\n", 'why is missing or one phrase'),
     ('a reference to what is no part', "value: { resource: storage-account__host }", "value: { resource: storage-account__data }", "which is not a part of the pattern"),
-    ('a reference to the wrong kind of part', "value: { resource: storage-account__host }", "value: { resource: key-vault }", 'but a storage_account is one of storage-account'),
+    ('a reference to the wrong kind of part', "value: { resource: storage-account__host }", "value: { resource: key-vault }", 'but a storage_account is a resource of storage-account'),
     ('a reference outside the pattern', "value: { resource: storage-account__host }", "value: { existing: storage_account }", 'a pattern knows no resource outside itself'),
     ('an access line into nothing', "    - from: function-app__jobs\n      to: storage-account__host\n", "    - from: function-app__jobs\n      to: redis-cache\n", "'redis-cache' is neither a part that exists"),
     ('a label in one language', 'label: { en: "working storage", de: "Arbeitsspeicher" }', 'label: { en: "working storage" }', 'label needs one line in each'),

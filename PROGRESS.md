@@ -347,8 +347,11 @@ the detail; this list says what was decided and why, so a session does not reope
   (2026-11-01). `accepts: { ref: <kind> }` named a bare word, and a spec held a reference in
   five shapes - key, plain name, id, `{ name, resource_group_name }`, a stage map of any - told
   apart by a regex; nothing checked a value was of its kind. Now
-  `core/iac-authoring/references/ref-kinds.yaml` defines every kind (the sets that create it,
-  the part where it is one, the ARM type and form of its id: `arm`, `arm_any`, `guid`), and a
+  `core/iac-authoring/references/ref-kinds.yaml` defines every kind (`set`, the set that creates it, or
+  `part_of` with `listed_in` and `always_present` where it is a part, and under `existing` the
+  ARM type and form of its id: `arm`, `arm_any`, `guid` - renamed 2026-11-18 from
+  `sets`/`part`/`implied`, which read as shorthand; 23 of the 44 kinds repeat their set's name
+  and type and could be derived, not done), and a
   spec writes a resource of the spec as `{ resource: <key>[, part: <name>] }` (one value, every
   stage; a subnet is a part of the network) or one outside it as `{ existing: <kind> }`.
   **The spec carries the id, never a name or a resource group** (owner's call): an id the

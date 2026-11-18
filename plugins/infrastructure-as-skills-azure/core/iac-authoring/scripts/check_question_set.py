@@ -46,8 +46,8 @@ a regex cannot see - what references/question-set-format.md promises:
   9. Unknown fields are reported: a misspelt `default` is a question that is
      silently asked every run.
  10. Reference kinds: every `{ ref: <kind> }` names a kind of references/ref-kinds.yaml,
-     and every kind there names sets that exist, a part question its set asks, and the
-     type its single set creates - a kind nobody defines checks nothing in a spec.
+     and every kind there names a set that exists, for a part the question that lists
+     it, and the type its set creates - a kind nobody defines checks nothing in a spec.
  11. `exclusive: true` stands only on a list of references: a part it names is claimed
      by at most one resource of the set (check_spec.py enforces it on a spec).
  12. Shared vocabulary, in a resource set: a cross-cutting decision has one id and decision
@@ -583,49 +583,66 @@ def check_set(path, doc, deployment, rel):
 
 
 def check_ref_kinds(kinds, load):
-    """The errors of ref-kinds.yaml: sets that exist, a part its set asks (and the prefix question
-    of an implied part), the type its set creates."""
+    """The errors of ref-kinds.yaml: a set that exists, for a part the question that lists it
+    (and the question of each part that is always present), the type its set creates."""
     errors = []
     set_files = {os.path.basename(os.path.dirname(p)): p for p in find_sets([os.path.join(PLUGIN, 'resources')])}
+
+    def asks(doc, path):
+        group, _, qid = str(path).partition('.')
+        return any(g == group and q.get('id') == qid for g, q in questions_of(doc))
+
     for name, k in kinds.items():
         where = f"ref-kinds.yaml: {name}"
         if not isinstance(k, dict):
             errors.append(f"{where} is not a mapping")
             continue
-        stray = set(k) - {'sets', 'part', 'type', 'id', 'implied'}
+        stray = set(k) - {'set', 'part_of', 'listed_in', 'always_present', 'existing'}
         if stray:
             errors.append(f"{where} carries unknown field(s) {', '.join(sorted(stray))}")
-        if k.get('id') not in ('arm', 'arm_any', 'guid'):
-            errors.append(f"{where}: id must be arm, arm_any or guid")
-        if k.get('id') == 'arm' and not k.get('type'):
+        existing = k.get('existing')
+        if not isinstance(existing, dict) or set(existing) - {'type', 'id'}:
+            errors.append(f"{where}: existing is {{ type: <ARM type>, id: arm | arm_any | guid }}")
+            existing = {}
+        elif existing.get('id') not in ('arm', 'arm_any', 'guid'):
+            errors.append(f"{where}: existing.id must be arm, arm_any or guid")
+        elif existing.get('id') == 'arm' and not existing.get('type'):
             errors.append(f"{where}: an arm id needs the type it carries")
-        sets = k.get('sets')
-        if sets == 'any':
+
+        part_of = k.get('part_of')
+        if part_of is None:
+            for field in ('listed_in', 'always_present'):
+                if k.get(field) is not None:
+                    errors.append(f"{where}: {field} without part_of")
+        elif k.get('set') is not None:
+            errors.append(f"{where}: set and part_of - a kind is a whole resource or a part of one")
+        elif not k.get('listed_in'):
+            errors.append(f"{where}: a part needs listed_in, the question whose list names it")
+
+        owner = part_of or k.get('set')
+        if owner is None or owner == 'any':
             continue
-        if not isinstance(sets, list):
-            errors.append(f"{where}: sets is a list of question sets, or any")
+        if not isinstance(owner, str):
+            errors.append(f"{where}: {'part_of' if part_of else 'set'} is one question set's name")
             continue
-        for s in sets:
-            if s not in set_files:
-                errors.append(f"{where} names set '{s}', which does not exist")
-                continue
-            doc = load(set_files[s])
-            if k.get('part'):
-                group, _, qid = str(k['part']).partition('.')
-                if not any(g == group and q.get('id') == qid for g, q in questions_of(doc)):
-                    errors.append(f"{where}: part {k['part']} is no question of the {s} set")
-                imp = k.get('implied')
-                if imp is not None:
-                    if not isinstance(imp, dict) or set(imp) != {'prefix', 'name'}:
-                        errors.append(f"{where}: implied is {{ prefix: <group.question>, name: <part name> }}")
-                    else:
-                        group, _, qid = str(imp['prefix']).partition('.')
-                        if not any(g == group and q.get('id') == qid for g, q in questions_of(doc)):
-                            errors.append(f"{where}: implied prefix {imp['prefix']} is no question of the {s} set")
-            elif k.get('implied') is not None:
-                errors.append(f"{where}: implied without a part")
-            elif k.get('type') and str(doc.get('resource', '')).lower() != str(k['type']).lower():
-                errors.append(f"{where}: type {k['type']}, but the {s} set creates {doc.get('resource')}")
+        if owner not in set_files:
+            errors.append(f"{where} names set '{owner}', which does not exist")
+            continue
+        doc = load(set_files[owner])
+        if part_of:
+            if k.get('listed_in') and not asks(doc, k['listed_in']):
+                errors.append(f"{where}: listed_in {k['listed_in']} is no question of the {owner} set")
+            unlisted = k.get('always_present')
+            if unlisted is not None and not isinstance(unlisted, list):
+                errors.append(f"{where}: always_present is a list of {{ name, when_answered }}")
+                unlisted = []
+            for entry in unlisted or []:
+                if not isinstance(entry, dict) or set(entry) != {'name', 'when_answered'}:
+                    errors.append(f"{where}: always_present holds {{ name: <part name>, when_answered: <group.question> }}")
+                elif not asks(doc, entry['when_answered']):
+                    errors.append(f"{where}: always_present when_answered {entry['when_answered']} is no question of the {owner} set")
+        elif existing.get('type') and str(doc.get('resource', '')).lower() != str(existing['type']).lower():
+            errors.append(f"{where}: type {existing['type']}, but the {owner} set creates {doc.get('resource')}")
     return errors
 
 
