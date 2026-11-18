@@ -23,6 +23,17 @@ managed online endpoints and jobs from the team's own pipeline. The private DNS 
 (`privatelink.api.azureml.ms`, `privatelink.notebooks.azure.net`) before the private endpoint
 is used.
 
+## Roles
+
+A role on the workspace is a `wiring.role_assignments` entry with it as `to`. `AzureML Data
+Scientist` is for the people who run jobs and register models, `AzureML Compute Operator`
+for whoever creates and resizes compute, and the reader role for an auditor - each a group
+outside the spec, `from: { existing: entra_group }`. `Contributor` on the resource group
+gives compute creation and the bill with it, and is a departure that names a person.
+
+The workspace identity's own roles on its dependencies (storage, vault, registry) are
+entries with the workspace as `from`.
+
 ## Pitfalls
 
 **Null dependencies make the Terraform module create them.** `storage_account`, `key_vault`,
@@ -46,8 +57,8 @@ the list gets written; `provision_network_now` moves the network errors into the
 
 **Identity-based datastores change who needs which role.** With `storage_datastore_auth:
 identity` every user who browses data in the studio needs `Storage Blob Data Contributor` on the
-storage account, not only the workspace identity - a role list the storage account's
-`role_assignments` carries, through the pattern.
+storage account, not only the workspace identity - `wiring.role_assignments` entries with the
+storage account as `to` and the users' group as `from`.
 
 **User-assigned identity means the roles come first.** Blob and file data roles on storage, the
 vault role, `AcrPull`/`AcrPush`, `Monitoring Metrics Publisher` on Application Insights and

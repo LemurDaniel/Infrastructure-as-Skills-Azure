@@ -32,7 +32,7 @@ decisions:
     terraform: { attribute: input_schema, passthrough: true, note: fixed at creation }
     bicep_avm: { attribute: inputSchema, passthrough: true, note: module default EventGridSchema - written; fixed at creation }
     bicep: { attribute: properties.inputSchema, passthrough: true, note: fixed at creation }
-  topic.minimum_tls_version:
+  topic.min_tls_version:
     terraform_avm: { attribute: minimum_tls_version_allowed, passthrough: true, note: module default 1.2 - written }
     terraform: { attribute: minimum_tls_version, passthrough: true, note: 'string; "1.0", "1.1", "1.2", provider default 1.2 - written (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
     bicep_avm: { attribute: minimumTlsVersionAllowed, passthrough: true, note: module default 1.2 - written }
@@ -40,19 +40,19 @@ decisions:
   topic.local_auth:
     terraform_avm:
       attribute: disable_local_auth
-      values: { disabled: true, allowed_where_unavoidable: false }
+      values: { disabled: true, enabled: false }
       note: module default true - written
     terraform:
       attribute: local_auth_enabled
-      values: { disabled: false, allowed_where_unavoidable: true }
+      values: { disabled: false, enabled: true }
       note: the inverse of the module's disable_local_auth
     bicep_avm:
       attribute: disableLocalAuth
-      values: { disabled: true, allowed_where_unavoidable: false }
+      values: { disabled: true, enabled: false }
       note: module default true - written
     bicep:
       attribute: properties.disableLocalAuth
-      values: { disabled: true, allowed_where_unavoidable: false }
+      values: { disabled: true, enabled: false }
   topic.data_residency_boundary:
     terraform_avm: { attribute: data_residency_boundary, passthrough: true, note: module default null }
     terraform: { attribute: data_residency_boundary, passthrough: true, note: 'WithinGeopair or WithinRegion (source: azurerm 5.12 schema, azurerm 5.12 docs)' }
@@ -185,13 +185,6 @@ decisions:
     terraform: { attribute: inbound_ip_rule.ip_mask, note: '{ ip_mask, action }' }
     bicep_avm: { attribute: 'inboundIpRules[].ipMask', note: "action: 'Allow'; used only with public access Enabled" }
     bicep: { attribute: 'properties.inboundIpRules[].ipMask', note: "action: 'Allow'" }
-
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform: { attribute: azurerm_role_assignment, note: scope = the topic's id }
-    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the topic }
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:

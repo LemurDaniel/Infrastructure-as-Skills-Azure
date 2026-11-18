@@ -6,7 +6,7 @@ taken up, `PROGRESS.md` records the decision and its file gets a pointer to it.
 
 | Idea | Status |
 |---|---|
-| [Pattern skill](pattern-skill.md) - whole systems, the wiring owned, requirements choose the pattern | Sketch, the largest open piece |
+| [Patterns](pattern-skill.md) - whole systems, the wiring owned, requirements choose the pattern | Built: four patterns as data, format and checks; open is what a paid run and a render say |
 | [Quality gates](quality-gates.md) - PSRule, cross-backend diff, CI in this repo, a consistency number | Sketch |
 | [Autonomous Terraform agent](autonomous-terraform-agent.md) - scheduled, tests on a real subscription, opens PRs | Sketch |
 | [AVM drift watch](avm-drift-watch.md) - light first step, bumps pins via PR | Sketch |

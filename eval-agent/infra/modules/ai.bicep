@@ -58,7 +58,7 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
     restrictOutboundNetworkAccess: true
     allowedFqdnList: []
 
-    // decision: foundry.security.local_authentication_disabled
+    // decision: foundry.security.local_auth
     disableLocalAuth: true
 
     // decision: foundry.security.key_management - platform_managed: no properties.encryption
@@ -154,7 +154,7 @@ resource diagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' 
   }
 }
 
-// decision: foundry.identity.role_assignments
+// decision: wiring.role_assignments
 resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
   for ra in roleAssignments: {
     name: guid(account.id, ra.principalId, ra.roleDefinitionId)

@@ -111,8 +111,8 @@ output "principal_id" { value = azurerm_purview_account.this.identity[0].princip
 
 Validated with `terraform validate` against `azurerm` 5.11.0 and `azapi` 2.x. With
 `managed_event_hub: true` the map gains `namespace = azurerm_purview_account.this.managed_resources[0].event_hub_namespace_id`
-(sub-resource `namespace`); `role_assignments` are `azurerm_role_assignment` with
-`scope = azurerm_purview_account.this.id` and the role by name; the lock is an
+(sub-resource `namespace`); the `wiring.role_assignments` entries on the account are
+`azurerm_role_assignment` with `scope = azurerm_purview_account.this.id` and the role by name; the lock is an
 `azurerm_management_lock` in the stages `resource_lock` names.
 
 ### Collection roles

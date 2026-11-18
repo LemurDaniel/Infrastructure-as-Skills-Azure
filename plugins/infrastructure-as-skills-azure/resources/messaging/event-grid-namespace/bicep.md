@@ -128,7 +128,7 @@ arrays from the spec and, under `mqtt_routing: event_grid_topic`, adds `routeTop
 and `routingIdentityInfo: { type: 'SystemAssigned' }` in a second deployment once the topic
 and the identity's role on it exist.
 
-`capacity` above one and `minimum_tls_version` are not carried by the module: the render
+`capacity` above one and `min_tls_version` are not carried by the module: the render
 either accepts the platform's values and records them `forced` with the module as `forced_by`,
 or renders the namespace authored (below) and keeps the module for nothing. A push
 subscription takes `deliveryConfiguration.push.deliveryWithResourceIdentity` with the
@@ -141,7 +141,7 @@ A module call compiles to a nested deployment whose `properties.parameters.<para
 decision, so every decision the module carries is observable in `tests/*.armtest.yaml`
 ([bicep-idiom.md](../../../core/iac-rendering/references/bicep-idiom.md#tests)): `isZoneRedundant`,
 `publicNetworkAccess`, `topicSpacesState`, the `topics` array down to
-`deliveryConfiguration.queue.maxDeliveryCount`. `capacity` and `minimum_tls_version` are
+`deliveryConfiguration.queue.maxDeliveryCount`. `capacity` and `min_tls_version` are
 `# not-testable:` against the module call (no parameter) and asserted on the authored resource
 where that path is taken.
 

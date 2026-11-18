@@ -7,7 +7,7 @@ naming:
   terraform: "Azure::Microsoft.Network/privateEndpoints"
   bicep: "Microsoft.Network/privateEndpoints"
   # Bicep assembles the name from vars - this is the prefix it renders. The convention
-  # takes a `subname` (the sub-resource) so the index stays last: pep-we-prod-invoicing-blob-01.
+  # takes a `purpose` (the sub-resource) so the index stays last: pep-we-prod-invoicing-blob-01.
   abbreviation: "pep"
 
 boundaries:

@@ -58,7 +58,7 @@ module "secret_db_connection" {
   value_wo         = var.db_connection
   value_wo_version = 1
 
-  # decision: key-vault-secret.identity.role_assignments
+  # decision: wiring.role_assignments
   role_assignments = {
     app = {
       role_definition_id_or_name = "Key Vault Secrets User"

@@ -50,7 +50,7 @@ run "identity" {
     error_message = "System-assigned identity: the principal that reads the storage account and calls the embedding model."
   }
 
-  # decision: search-service.identity.role_assignments
+  # decision: wiring.role_assignments
   assert {
     condition     = length([for k in keys(azurerm_role_assignment.this) : k if startswith(k, "search-service/")]) == 1 && azurerm_role_assignment.this["search-service/app-service/Search Index Data Reader"].role_definition_name == "Search Index Data Reader"
     error_message = "The app holds Search Index Data Reader on the service, and nothing else."

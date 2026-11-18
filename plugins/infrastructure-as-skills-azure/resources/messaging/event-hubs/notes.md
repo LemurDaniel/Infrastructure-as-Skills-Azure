@@ -17,6 +17,17 @@ Identity, key vault and key (customer-managed key only), the storage account and
 (a data-plane role on an event hub needs it), then the consumers. The workspace before the
 diagnostic setting. A geo pairing is the last step and needs an empty secondary.
 
+## Roles
+
+A role on the namespace is a `wiring.role_assignments` entry with it as `to`. Data-plane
+access is granted by role, never by key. The narrow roles are `Azure Event Hubs Data Sender`
+and `Azure Event Hubs Data Receiver`; `Azure Event Hubs Data Owner` is for the deploying
+principal and a person, never for a workload. A producer needs only Sender, a consumer only
+Receiver. Never the subscription.
+
+A consumer that checkpoints into a storage account also needs its blob role there: a second
+entry, with the storage account as `to`.
+
 ## Pitfalls
 
 **Events are not a queue.** A consumer reads a position in a retained stream; reading does not

@@ -85,7 +85,7 @@ module "postgresql" {
   # private_dns_records: policy - the platform policy writes the record
   private_endpoints_manage_dns_zone_group = false
 
-  # decision: postgresql-flexible-server.security.minimum_tls_version
+  # decision: postgresql-flexible-server.security.min_tls_version
   server_configuration = {
     ssl_min_protocol_version = { name = "ssl_min_protocol_version", config = "TLSv1.2" }
     require_secure_transport = { name = "require_secure_transport", config = "on" }

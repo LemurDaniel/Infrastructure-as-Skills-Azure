@@ -37,8 +37,8 @@ three have different delivery guarantees, not different prices.
 
 **Messaging resources are the glue other resources point at.** A Function App trigger, a
 Container Apps scale rule, an Event Grid subscription and a Log Analytics export each name a
-namespace or topic that has to exist first. The role a consumer needs on it is granted in the
-pattern that wires them, never here.
+namespace or topic that has to exist first. The role a consumer needs on it is a
+`wiring.role_assignments` entry with the namespace or topic as `to`, never a decision of these sets.
 
 **No key in a template, ever.** With `local_auth: disabled` the namespaces have no connection
 strings; consumers use Entra ID and a data-plane role. A consumer that cannot is a named

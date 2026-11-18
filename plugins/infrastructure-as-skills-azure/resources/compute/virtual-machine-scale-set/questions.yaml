@@ -20,7 +20,7 @@ boundaries:
   - "Does not create the disk encryption set, nor the Key Vault key behind it, nor the identity that unwraps it. A customer-managed key is wiring between the key vault, the set and the set's disks."
   - "Does not install software or configure the guest beyond the platform's health extension: custom script, DSC, domain join, the Azure Monitor Agent and Data Collection Rules are image-build or deployment-pipeline decisions."
   - "Does not back instances up. Scale set instances are replaceable; state belongs on a data store, not on an instance."
-  - "Does not grant other resources a role for the set's identity (Key Vault secrets, storage data). `role_assignments` is the roles on the set itself; a role the identity needs elsewhere is wiring, owned by a pattern."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Single machines are `virtual-machine`; a group of machines that need a set's rack spreading in a region without zones is `availability-set`."
 
 groups:
@@ -170,6 +170,7 @@ groups:
           en: "Which instance size?"
           de: "Welche Instanzgröße?"
         type: string
+        stage_parameter: true
         plain:
           en: "The instance size is {value}."
           de: "Die Instanzgröße ist {value}."
@@ -282,6 +283,7 @@ groups:
           en: "How large should each system disk be, in GiB?"
           de: "Wie groß soll jede System-Disk sein, in GiB?"
         type: int
+        stage_parameter: true
         plain:
           en: "Each system disk is {value} GiB."
           de: "Jede Systemplatte ist {value} GiB groß."
@@ -463,23 +465,6 @@ groups:
           identity shared by all instances is the right shape anyway: a role is granted to it
           once and every new instance has it from its first minute, which a system-assigned
           identity cannot give. The identity must exist; this set does not create it.
-
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this scale set?"
-          de: "Wer braucht welche Rolle auf diesem Scale Set?"
-        type: list
-        plain:
-          en: "Access rights on the scale set granted to: {value} (empty: none)."
-          de: "Zugriffsrechte auf die Skalierungsgruppe vergeben an: {value} (leer: keine)."
-        default: []
-        per_environment: true
-        why: >
-          The roles over the set itself - the people or pipeline that may change its model or
-          scale it - never `Contributor` on the resource group for the sake of one set. Signing
-          in to an instance with Entra needs the system-assigned identity a Flexible set does
-          not have, so access to instances is by key and the private network. Empty is a valid
-          answer.
 
   # ----------------------------------------------------------------- security
   - id: security

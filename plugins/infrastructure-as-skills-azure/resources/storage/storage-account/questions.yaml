@@ -14,6 +14,7 @@ boundaries:
   - "Does not create private DNS zones — shared infrastructure, owned by a pattern or the platform."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not decide containers, shares or queues. They are children of the account with their own sets (`blob-container`, `file-share`, `queue`), rendered into this account's module call."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -227,44 +228,25 @@ groups:
         per_environment: true
         why: The identities must already exist; this skill does not create them.
 
-      - id: role_assignments
-        ask:
-          en: "Who needs which data-plane role on this account?"
-          de: "Wer braucht welche Rolle auf Datenebene auf diesem Konto?"
-        type: list
-        plain:
-          en: "Access rights granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With shared-key auth disabled, nothing can read the account until a role
-          is assigned — so an empty list means a working account nobody can use,
-          and it is not an answer: when no consumer is named and shared keys are
-          off, the list stays empty and the decision is an `open:` entry owned by
-          the workload owner, blocking apply.
-          Scope each assignment to the container it needs, not to the account, and
-          never to the subscription. A pattern skill normally fills this from the
-          consumers it knows about.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
     questions:
-      - id: shared_access_key_enabled
+      - id: local_auth
         ask:
           en: "Should shared key (account key) authentication stay enabled?"
           de: "Soll die Anmeldung mit Shared Key (Kontoschlüssel) aktiviert bleiben?"
-        type: bool
+        type: enum
         plain:
           en: "Access with a shared key is {value}; access goes through company accounts."
           de: "Zugriff mit einem geteilten Schlüssel ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "possible", de: "möglich" }
-          false: { en: "not possible", de: "nicht möglich" }
-        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
+          enabled: { en: "possible", de: "möglich" }
+          disabled: { en: "not possible", de: "nicht möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
-          Inherited: `local_auth: disabled` renders as `false` here. An account key
+          Inherited from the deployment's `local_auth`. An account key
           is a bearer credential with full data-plane rights, it does not expire,
           and its use is indistinguishable from any other key holder in the audit
           log. The usual blocker is a legacy consumer holding a connection string —
@@ -281,10 +263,10 @@ groups:
           en: "Connections must use at least {value} encryption."
           de: "Verbindungen müssen mindestens {value}-Verschlüsselung nutzen."
         plain_values:
-          TLS1_2: { en: "TLS 1.2", de: "TLS 1.2" }
-          TLS1_3: { en: "TLS 1.3", de: "TLS 1.3" }
-        accepts: [TLS1_2, TLS1_3]
-        default: TLS1_2
+          "1.2": { en: "TLS 1.2", de: "TLS 1.2" }
+          "1.3": { en: "TLS 1.3", de: "TLS 1.3" }
+        accepts: ["1.2", "1.3"]
+        default: "1.2"
         why: >
           1.2 is the floor and non-negotiable. 1.3 is preferable where every
           client supports it, but an unsupported floor fails as an opaque
@@ -444,6 +426,7 @@ groups:
           en: "Which default access tier?"
           de: "Welche Standard-Zugriffsebene?"
         type: enum
+        stage_parameter: true
         plain:
           en: "Stored in the {value} class."
           de: "Gespeichert in der Klasse {value}."

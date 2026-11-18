@@ -17,6 +17,14 @@ The app, then its private endpoint, then the DNS zone for the endpoint (the app'
 only known after the app exists), then the first deployment of content. Custom domains need the
 app's default hostname for their CNAME and come after.
 
+## Roles
+
+A role on the app is a `wiring.role_assignments` entry with it as `to`. It is Azure RBAC on
+the app - the control plane: `Website Contributor` or `Static Web App Contributor` for the
+deploying principal, scoped to the app. The visitors' access to the site is not Azure RBAC
+at all: it is the login and the routes in `staticwebapp.config.json`. An app without any
+entry is normal.
+
 ## Pitfalls
 
 **A private site is deployed to from inside the network.** With `public_network_access: disabled`

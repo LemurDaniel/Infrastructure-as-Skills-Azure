@@ -97,9 +97,10 @@ Never hardcode a resource name, and never hand-write a tag per resource.
 
 **Names follow the plugin's convention unless the customer specifies another.** The
 convention is [naming.default.yaml](../../iac-rendering/references/naming.default.yaml) —
-CAF abbreviations, AVM region codes, `<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME>-<INDEX>` with
-per-type patterns where Azure's limits force them, and `<UNIQUE_ID_4>` in place of `<INDEX>`
-for every global name (`stweprodpaymentsa1b2`, `kv-we-prod-payments-a1b2`). Every root gets
+the `LemurDaniel/naming` provider's own default: CAF abbreviations, AVM region codes,
+`<TYPE>-<LOCATION>-<ENVIRONMENT>-<NAME><?PURPOSE;-%s>-<INDEX>` with per-type patterns where
+Azure's limits force them, the location in every one, and `<UNIQUE_ID_3>` in place of
+`<INDEX>` for every global name (`stweprodpaymentsa1b`, `kv-we-prod-payments-a1b`). Every root gets
 a full copy as `naming.yaml` beside the spec on the first run: Terraform's provider reads it, Bicep's name `var`s are generated from it.
 From then on the convention is what the repository holds:
 
@@ -167,7 +168,7 @@ supports disabling local auth, disable it:
 
 | Resource | The switch |
 |---|---|
-| Storage account | `shared_access_key_enabled: false` |
+| Storage account | `local_auth: disabled` |
 | Key Vault | `rbac_authorization: true` (not access policies) |
 | App Service | FTP and SCM basic publishing credentials disabled; both switches, they are separate |
 | Service Bus / Event Hub | local auth disabled |
@@ -182,7 +183,9 @@ exists is the usual legitimate reason.
 
 Role assignments are scoped as tightly as the consumer allows: the specific container or
 secret, not the subscription. A role assignment at subscription scope in generated code is
-a bug unless the resource genuinely operates subscription-wide.
+a bug unless the resource genuinely operates subscription-wide. A role is recorded once, as
+a relationship between two parts of the system (`wiring.role_assignments` in the spec), on
+the narrowest resource that carries the access.
 
 ## 4. Encryption
 

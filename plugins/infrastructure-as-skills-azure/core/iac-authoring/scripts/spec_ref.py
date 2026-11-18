@@ -24,9 +24,26 @@ ARM_ANY = re.compile(r'^(/subscriptions/[0-9a-fA-F-]{36}(/resourceGroups/[^/]+(/
 
 
 def load_kinds(yaml):
-    """kind -> {sets, part, type, id} from ref-kinds.yaml."""
+    """kind -> its entry of ref-kinds.yaml: `set`, or `part_of` with `listed_in` and
+    `always_present` for a part, and `existing: { type, id }`."""
     with open(KINDS_FILE, encoding='utf-8') as f:
         return (yaml.safe_load(f) or {}).get('kinds') or {}
+
+
+def set_of(kind):
+    """The question set a `resource:` reference of this kind names: the set the part belongs
+    to, the set that creates the resource, `any`, or None when the spec never creates one."""
+    return (kind or {}).get('part_of') or (kind or {}).get('set')
+
+
+def id_form(kind):
+    """The form an id of this kind has: arm, arm_any or guid."""
+    return ((kind or {}).get('existing') or {}).get('id')
+
+
+def id_type(kind):
+    """The ARM type an id of this kind carries, None where the form asks for none."""
+    return ((kind or {}).get('existing') or {}).get('type')
 
 
 def kind_of(question):
@@ -68,13 +85,13 @@ def arm_type(rid):
 
 def id_fits(rid, kind):
     """Whether an id has the form its kind asks for."""
-    form = kind.get('id')
+    form = id_form(kind)
     if form == 'guid':
         return isinstance(rid, str) and bool(GUID.match(rid))
     if form == 'arm_any':
         return arm_type(rid) is not None
     t = arm_type(rid)
-    return t is not None and t.lower() == str(kind.get('type', '')).lower()
+    return t is not None and t.lower() == str(id_type(kind) or '').lower()
 
 
 def _value(resource, path):
@@ -83,11 +100,12 @@ def _value(resource, path):
     return node.get('value') if isinstance(node, dict) and 'value' in node else node
 
 
-def part_names(resource, part, implied=None):
+def part_names(resource, listed_in, always_present=None):
     """The names a resource's part question holds (`addressing.subnets`), over every stage, and
-    the implied part (ref-kinds.yaml `implied`: the private endpoint subnet) where no listed part
-    carries its prefix in a stage - a listed part with that prefix is the implied one."""
-    v = _value(resource, part)
+    each part it has without listing it (ref-kinds.yaml `always_present`: the private endpoint
+    subnet) where no listed part carries its prefix in a stage - a listed part with that prefix
+    is that part."""
+    v = _value(resource, listed_in)
     lists = v if isinstance(v, dict) else {None: v}
     names, prefixes = set(), {}
     for stage, lst in lists.items():
@@ -97,12 +115,12 @@ def part_names(resource, part, implied=None):
                 names.add(str(n))
             if isinstance(item, dict) and item.get('prefix') is not None:
                 prefixes.setdefault(stage, set()).add(str(item['prefix']))
-    if isinstance(implied, dict):
-        pe = _value(resource, implied['prefix'])
-        for stage, prefix in (pe.items() if isinstance(pe, dict) else [(None, pe)]):
+    for unlisted in always_present or []:
+        answer = _value(resource, unlisted['when_answered'])
+        for stage, prefix in (answer.items() if isinstance(answer, dict) else [(None, answer)]):
             listed = prefixes.get(stage, set()) | prefixes.get(None, set())
             if prefix not in (None, '') and str(prefix) not in listed:
-                names.add(str(implied['name']))
+                names.add(str(unlisted['name']))
     return names
 
 
@@ -115,7 +133,7 @@ def check(path, v, kind_name, kinds, resources, environments, open_stages, open_
     if environments and isinstance(v, dict) and v and all(k in environments for k in v):
         return [f"{path} is a reference split by stage - a reference is one value: "
                 f"{{resource: <key>}} for this spec's, {{existing: {kind_name}, id: {{<stage>: <id>}}}} for one outside it"]
-    sets = kind.get('sets') or []
+    owner = set_of(kind)
     for ref in items(v):
         if not is_ref(ref):
             errors.append(f"{path} holds {ref!r}, which is no reference - {{resource: <key>}} or {{existing: {kind_name}}} (spec.md, References)")
@@ -131,17 +149,17 @@ def check(path, v, kind_name, kinds, resources, environments, open_stages, open_
             if key not in resources:
                 errors.append(f"{path} references resource '{key}', which this spec does not hold")
                 continue
-            if sets != 'any' and key.split('__')[0] not in sets:
-                where = ', '.join(sets) if sets else 'none - the spec never creates one, so it is existing'
+            if owner != 'any' and key.split('__')[0] != owner:
+                where = owner or 'none - the spec never creates one, so it is existing'
                 errors.append(f"{path} references '{key}', which is no {kind_name} (a {kind_name} is a resource of: {where})")
                 continue
-            if kind.get('part'):
+            if kind.get('part_of'):
                 if not ref.get('part'):
-                    errors.append(f"{path} references '{key}' without part - a {kind_name} is a part of it, named by {kind['part']}")
+                    errors.append(f"{path} references '{key}' without part - a {kind_name} is a part of it, named by {kind['listed_in']}")
                 else:
-                    names = part_names(resources.get(key), kind['part'], kind.get('implied'))
+                    names = part_names(resources.get(key), kind['listed_in'], kind.get('always_present'))
                     if names and str(ref['part']) not in names:
-                        errors.append(f"{path} references part '{ref['part']}' of '{key}', which its {kind['part']} does not name ({', '.join(sorted(names))})")
+                        errors.append(f"{path} references part '{ref['part']}' of '{key}', which its {kind['listed_in']} does not name ({', '.join(sorted(names))})")
             elif 'part' in ref:
                 errors.append(f"{path} names a part, but a {kind_name} is a whole resource")
         else:
@@ -162,7 +180,7 @@ def check(path, v, kind_name, kinds, resources, environments, open_stages, open_
                 continue
             for stage, rid in ids.items():
                 if not id_fits(rid, kind):
-                    form = {'guid': 'an object id (GUID)', 'arm_any': 'a resource id'}.get(kind.get('id'), f"the id of a {kind.get('type')}")
+                    form = {'guid': 'an object id (GUID)', 'arm_any': 'a resource id'}.get(id_form(kind), f"the id of a {id_type(kind)}")
                     errors.append(f"{path} (stage {stage}) is '{rid}', which is not {form}")
             for e in environments:
                 if e not in ids and e not in open_stages.get(path, set()) and path not in open_keys:

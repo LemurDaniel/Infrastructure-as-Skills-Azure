@@ -50,7 +50,7 @@ resource bot 'Microsoft.BotService/botServices@2022-09-15' = {
     msaAppTenantId: tenant().tenantId
     isStreamingSupported: false // decision: bot-service.bot.streaming_endpoint
     publicNetworkAccess: 'Disabled' // decision: bot-service.networking.public_network_access
-    disableLocalAuth: true // decision: bot-service.security.local_authentication_disabled
+    disableLocalAuth: true // decision: bot-service.security.local_auth
     isCmekEnabled: false // decision: bot-service.security.key_management
   }
 }

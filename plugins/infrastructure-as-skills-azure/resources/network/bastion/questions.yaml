@@ -102,6 +102,7 @@ groups:
           en: "Which Bastion SKU?"
           de: "Welche Bastion-SKU?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The Bastion is the {value} SKU."
           de: "Der Bastion ist die SKU {value}."
@@ -155,6 +156,7 @@ groups:
           en: "How many scale units should the Bastion run?"
           de: "Wie viele Skalierungseinheiten soll die Bastion betreiben?"
         type: int
+        stage_parameter: true
         plain:
           en: "The Bastion runs {value} scale units."
           de: "Der Bastion läuft mit {value} Skalierungseinheiten."

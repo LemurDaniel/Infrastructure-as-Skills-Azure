@@ -68,14 +68,3 @@ decisions:
       attribute: properties.denyEncryptionScopeOverride
       passthrough: true
       note: with defaultEncryptionScope, written together or both left out when no scope is set
-
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm:
-      attribute: 'containers.<key>.role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
-      note: scoped to the container
-    terraform: { attribute: azurerm_role_assignment, note: 'scope = azurerm_storage_container.<k>.id, the Resource Manager id in 5.x' }
-    bicep_avm: { attribute: 'blobServices.containers[].roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { roleDefinitionId, principalId, principalType }'
-      note: 'an extension resource, scope = the container (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'

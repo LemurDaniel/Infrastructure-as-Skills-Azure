@@ -43,6 +43,9 @@ SOURCES = ['app-service', 'function-app', 'container-apps']
 ENTRY_LABELS = ['HTTPS 443', 'OIDC', 'Graph 443', '', '']
 
 
+ROLES = {}   # resource key -> the role assignments on it, from the fixture its block comes from
+
+
 def load_pool():
     import yaml
     docs, blocks = [], {}
@@ -50,8 +53,15 @@ def load_pool():
         with open(f, encoding='utf-8') as fh:
             d = yaml.safe_load(fh)
         docs.append(d)
+        new = [k for k in (d.get('resources') or {}) if k not in blocks]
         for k, v in (d.get('resources') or {}).items():
             blocks.setdefault(k, v)
+        # A block travels with the roles its fixture puts on it (wiring.role_assignments).
+        roles = (d.get('wiring') or {}).get('role_assignments')
+        roles = roles.get('value') if isinstance(roles, dict) and 'value' in roles else roles
+        for r in roles or []:
+            if isinstance(r, dict) and r.get('to') in new:
+                ROLES.setdefault(r['to'], []).append(r)
     return docs, blocks
 
 
@@ -95,6 +105,9 @@ def generate(rng, docs, blocks, seed):
         if rng.random() < 0.6 and isinstance(res[k], dict):
             res[k]['meta'] = {'purpose': {'value': f'Purpose of {k}', 'source': 'stated'}}
     wiring.pop('role_assignments', None)
+    roles = [copy.deepcopy(r) for k in res for r in ROLES.get(k, [])]
+    if roles:
+        wiring['role_assignments'] = {'value': roles, 'source': 'stated'}
     spec['context']['language'] = rng.choice(['en', 'de'])
     spec['context']['environments'] = rng.choice([['production'], ['test', 'production'], ['development', 'test', 'production']])
     spec['spec']['id'] = f'fuzz-{seed}'

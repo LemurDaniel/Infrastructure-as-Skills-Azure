@@ -62,7 +62,7 @@ decisions:
   networking.private_endpoint_subresources:
     terraform_avm:
       attribute: 'private_endpoints.<sub>.subresource_name'
-      note: one map entry per sub-resource, named with the naming provider's subname parameter
+      note: one map entry per sub-resource, named with the naming provider's purpose parameter
     terraform: { attribute: azurerm_private_endpoint.private_service_connection.subresource_names }
     bicep_avm:
       attribute: 'privateEndpoints[].service'
@@ -137,27 +137,18 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: an object keyed by id, each value empty (source bicep build, Microsoft.Storage/storageAccounts@2023-05-01)
-  identity.role_assignments:
-    terraform_avm:
-      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
-      note: role by name, scoped to the account; container scope is on the containers input
-    terraform: { attribute: azurerm_role_assignment, note: scope = the account's id }
-    bicep_avm:
-      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
-      note: role by name - the GUID table of the authored render goes away; container scope is on blobServices.containers[].roleAssignments
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the account }
 
   # ----------------------------------------------------------------- security
-  security.shared_access_key_enabled:
-    terraform_avm: { attribute: shared_access_key_enabled, passthrough: true, note: module default false; written anyway }
-    terraform: { attribute: shared_access_key_enabled, passthrough: true }
-    bicep_avm: { attribute: allowSharedKeyAccess, passthrough: true }
-    bicep: { attribute: properties.allowSharedKeyAccess, passthrough: true }
+  security.local_auth:
+    terraform_avm: { attribute: shared_access_key_enabled, values: { disabled: false, enabled: true }, note: module default false; written anyway }
+    terraform: { attribute: shared_access_key_enabled, values: { disabled: false, enabled: true } }
+    bicep_avm: { attribute: allowSharedKeyAccess, values: { disabled: false, enabled: true } }
+    bicep: { attribute: properties.allowSharedKeyAccess, values: { disabled: false, enabled: true } }
   security.min_tls_version:
-    terraform_avm: { attribute: min_tls_version, passthrough: true }
-    terraform: { attribute: min_tls_version, passthrough: true }
-    bicep_avm: { attribute: minimumTlsVersion, passthrough: true }
-    bicep: { attribute: properties.minimumTlsVersion, passthrough: true }
+    terraform_avm: { attribute: min_tls_version, values: { "1.2": TLS1_2, "1.3": TLS1_3 } }
+    terraform: { attribute: min_tls_version, values: { "1.2": TLS1_2, "1.3": TLS1_3 } }
+    bicep_avm: { attribute: minimumTlsVersion, values: { "1.2": TLS1_2, "1.3": TLS1_3 } }
+    bicep: { attribute: properties.minimumTlsVersion, values: { "1.2": TLS1_2, "1.3": TLS1_3 } }
   security.https_traffic_only:
     terraform_avm: { attribute: https_traffic_only_enabled, passthrough: true }
     terraform: { attribute: https_traffic_only_enabled, passthrough: true, note: enable_https_traffic_only before 4.0 }

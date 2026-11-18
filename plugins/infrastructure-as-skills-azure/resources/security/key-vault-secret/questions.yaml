@@ -16,7 +16,7 @@ boundaries:
   - "Does not render a secret's value. A secret is created as a **placeholder** whose real value is filled in afterwards, outside the template, or takes a value the deployment is handed as a secure input (`value_source`). A value is never a literal, a default or a spec field."
   - "Is not the vault's `secret_placeholders`. That list creates bare slots - name only, no per-secret decision. A secret with any decision of its own (a content type, an expiry, a role on the secret) is an instance of this set, and its name is then **not** in `key-vault.secret_placeholders`: a name in both is two writers of one secret and the check refuses it."
   - "Does not rotate secret values. Rotation of a value (a database password, a storage key) is an Event Grid or Functions workflow of its own and has no question set; `expiry_days` only dates the first version."
-  - "Does not wire a consumer to the secret. The consumer's identity gets `Key Vault Secrets User` on the secret in the pattern that wires them, rendered as a `role-assignment`; `role_assignments` here is for the secret's own readers and writers."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not create certificates. A certificate issuance also creates a secret and a key; certificates have decisions of their own (issuer, lifetime actions) and no question set yet."
   - "Has no diagnostic settings: the vault's audit log records every read of the secret."
 
@@ -56,29 +56,6 @@ groups:
           only from inside the network, so the pipeline that creates the secret is a runner
           in the network or the vault is created open and closed in a second step (see
           `key-vault/notes.md`).
-
-  # ----------------------------------------------------------------- identity
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this secret?"
-          de: "Wer braucht welche Rolle auf diesem Secret?"
-        type: list
-        plain:
-          en: "Access rights on the secret granted to: {value}."
-          de: "Zugriffsrechte auf das Geheimnis vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Scoped to the secret (its versionless id), the narrowest scope RBAC offers:
-          `Key Vault Secrets User` for the application that reads it, `Key Vault Secrets
-          Officer` for the person or process that writes the real value into a placeholder.
-          The writer is the identity that makes the placeholder meaningful, and without it the
-          slot stays a dummy - when nobody is named, the list stays empty and the decision is
-          an `open:` entry owned by the workload owner. The module's interface is used for
-          these; an assignment between two modules is a `role-assignment`.
 
   # ----------------------------------------------------------------- security
   - id: security

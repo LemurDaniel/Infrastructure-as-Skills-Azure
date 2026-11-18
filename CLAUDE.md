@@ -23,7 +23,7 @@ is `core/iac-rendering/references/avm.md`.
 | Layer | Role |
 |---|---|
 | **Resource families** (`resources/<family>/`) | Reference material, not skills. One directory per resource, its decisions in `<resource>/questions.yaml`; the `azure-resources` skill routes into them |
-| **Pattern skills** (`patterns/`) | Pre-answer most of a resource's questions and own the wiring between the parts |
+| **Patterns** (`patterns/<id>/pattern.yaml`) | Data, not skills: a whole system - its parts, the questions only it asks, pre-answers in the parts' sets, and the wiring between them. `iac-authoring` routes into them through `patterns/routing.md` |
 | **`infra-spec.yaml`** | The interview's output. A backend renders *from* it; it is not a by-product |
 
 ## Commands
@@ -56,6 +56,16 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 # derived/confirmed/required questions, boundaries. The test asserts it drops none of them.
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/interview_digest.py compute/app-service --language de
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_interview_digest_tests.py
+
+# Validates every pattern (or the ones given) against references/pattern-format.md, in every
+# variant its asks produce: parts with a question set, pre-answers the set accepts and a pattern
+# may give, roles from built-in-roles.yaml on parts that have an identity, secrets a vault holds.
+# apply_pattern.py prints a pattern's share of a spec for the answers given. The test breaks one
+# rule per case in a fixture pattern, then applies every variant of every pattern, runs
+# check_spec.py on it and draws it.
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_pattern.py
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/apply_pattern.py ai-chat-rag --answer sign_in=company_accounts --language de
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_pattern_tests.py
 
 # What a render reads instead of spec.md and whole references: every decision with its key path
 # and the literal its render-map.yaml gives the target, the AVM modules, and the line ranges of
@@ -135,6 +145,7 @@ The full tree is in [README.md](README.md#layout). What is not obvious from it:
 | `.../resources/<family>/routing.md` | Routing table: request → question set. **Not** a `SKILL.md` — see below |
 | `.../resources/<family>/<resource>/{questions.yaml,notes.md,terraform.md,bicep.md}` | **The content**, one directory per resource; the rendering references open with the AVM call |
 | `.../resources/<family>/<resource>/render-map.yaml` | What each decision renders to, per target and implementation, with the literal of every answer (`core/iac-rendering/references/render-map.md`). A changed question, input or literal changes it in the same commit; `check_render_map.py` fails on a question it misses |
+| `.../lib/plugin_lib.py` | What every script shares: where the plugin's files are, the printer and the exit codes (0 clean, 1 found something, 2 could not run), how a question set is found and read. A new script imports it; `run_arm_tests.py` does not, since the render copies it into customer repositories |
 | `.claude/skills/` | Repo maintenance. **Not** shipped with the plugin |
 
 ## The Two Structural Constraints
@@ -155,8 +166,9 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   `resources/` is deliberately not, so nothing in it costs budget — a family has a
   `routing.md`, never a `SKILL.md`, and the consistency script fails on one. The `skills/`
   scan is one level deep, cannot be switched off, and a declared path that does not
-  exist fails to load the plugin: `./patterns/` enters the array in the same commit as
-  its first skill.
+  exist fails to load the plugin. `patterns/` is not declared either: a pattern is a
+  `pattern.yaml` reached through `patterns/routing.md`, never a `SKILL.md` - a skill per
+  pattern overflows the budget at the second - and the consistency script fails on one.
 
 ## Gotchas
 
@@ -215,6 +227,13 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
 - **A decision that holds for more than one resource belongs in the deployment set.** A
   resource question that re-asks one carries `answer: { deployment: <id> }` instead of a `default`.
 - **A missing question set is said out loud, never improvised.**
+- **A role assignment is wiring, never a resource's decision.** One list,
+  `wiring.role_assignments`, `{ from, to, role }`, the same for every stage; `from` is a
+  resource key or `{ existing: entra_group | principal }`, `to` a resource key. No set asks
+  `role_assignments` (`check_question_set.py` fails on it): what a service's roles are is the
+  set's `notes.md`, *Roles*; how an entry renders is
+  `core/iac-rendering/references/role-assignments.md`. A scope that is no resource of the
+  spec is a `role-assignment` resource.
 - **The stack is the default.** `context.environments` is `[development, test, production]`
   unless the customer says otherwise; one root, one parameter file and one state (backend
   key, never a workspace) per stage. A `per_environment` value is a parameter from the
@@ -233,7 +252,8 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   decision, named `# decision: <resource>.<group>.<question>`, what a plan cannot observe
   `# not-testable:` with a reason. Bicep: one entry per decision in `tests/*.armtest.yaml`
   against the compiled ARM (`run_arm_tests.py`; symbolic names via `bicepconfig.json`).
-  `check_render_coverage.py` fails on anything else, per target.
+  `check_render_coverage.py` fails on anything else, per target. `wiring.role_assignments` is
+  the one key several tests may carry - one per target its entries land on.
 - **`check_question_set.py` parses; `check_repo_consistency.py` greps.** Run both before
   a commit that touches a question set: the first finds a default outside `accepts` or a
   `depends_on` pointing nowhere, the second finds a routing row pointing nowhere.

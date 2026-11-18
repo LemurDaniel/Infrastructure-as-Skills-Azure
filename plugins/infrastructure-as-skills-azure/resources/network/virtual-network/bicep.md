@@ -46,7 +46,8 @@ module virtualNetwork 'br/public:avm/res/network/virtual-network:0.10.2' = {
 
     subnets: [
       for subnet in subnets: {
-        name: subnet.name
+        // The short name is the purpose (<?PURPOSE;-%s>); an existing subnet keeps its azureName.
+        name: subnet.?azureName ?? 'snet-${loc}-${env}-${workload}-${subnet.name}-${idx}'
         addressPrefix: subnet.prefix
         // NSG and routes apply to private endpoint traffic.
         privateEndpointNetworkPolicies: 'Enabled'
@@ -100,7 +101,8 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-11-01' = {
 
     subnets: [
       for subnet in subnets: {
-        name: subnet.name
+        // The short name is the purpose (<?PURPOSE;-%s>); an existing subnet keeps its azureName.
+        name: subnet.?azureName ?? 'snet-${affix}-${workload}-${subnet.name}-01'
         properties: {
           addressPrefix: subnet.prefix
           // NSG and routes apply to private endpoint traffic.

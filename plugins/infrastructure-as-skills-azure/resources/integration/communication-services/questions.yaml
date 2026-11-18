@@ -21,7 +21,7 @@ boundaries:
   - "Does not create the Log Analytics workspace it logs to."
   - "Does not create a network security perimeter - the only way to close the public endpoint, and a platform resource with a question set of its own."
   - "Does not render identities for end users (the identity and token API), chat threads, rooms or call automation flows - application content."
-  - "Does not grant the application's identity its role on this resource - wiring between resources, owned by a pattern. It records this resource's own role assignments in `role_assignments`."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -288,44 +288,28 @@ groups:
         per_environment: true
         why: The identity must already exist; this set does not create it.
 
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this resource?"
-          de: "Wer braucht welche Rolle auf dieser Ressource?"
-        type: list
-        plain:
-          en: "Access rights on the resource granted to: {value}."
-          de: "Zugriffsrechte auf die Ressource vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          With keys off, an application sends a mail or issues a user token only through a
-          role on this resource, so an empty list is a working resource nobody can use. The
-          narrow role is `Communication and Email Service Owner` for the application that
-          sends and manages identities; `Contributor` is a departure that names a person. A
-          pattern fills this from the application it knows about.
-
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients sign in with the access keys or the connection string?"
           de: "Dürfen sich Clients mit den Zugriffsschlüsseln oder dem Connection String anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in with access keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit Zugriffsschlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         forced_when: >
-          `local_auth: allowed_where_unavoidable` is named for a client SDK or a connector
+          `local_auth: enabled` is named for a client SDK or a connector
           that offers no token credential - checked against the SDK before a render, because
           the current SDKs all take one
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. The connection string is a
+          Inherited from the deployment's `local_auth`. The connection string is a
           bearer credential for every channel on the resource - it sends mail and SMS as
           the organisation and mints user tokens - and it is what ends up in an application
           setting. With keys off the application authenticates with its managed identity and

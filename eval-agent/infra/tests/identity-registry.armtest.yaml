@@ -14,7 +14,7 @@
   path: resources.identityDashboard.properties.template.resources.identity.properties.isolationScope
   equals: None
 
-- decision: user-assigned-identity__dashboard.identity.role_assignments
+- decision: wiring.role_assignments
   stage: production
   path: parameters.identityRoleAssignments.value
   equals: []
@@ -33,7 +33,7 @@
   path: resources.identityDrift.properties.template.resources.identity.properties.isolationScope
   equals: None
 
-- decision: user-assigned-identity__drift.identity.role_assignments
+- decision: wiring.role_assignments
   stage: production
   path: parameters.identityRoleAssignments.value
   equals: []
@@ -52,7 +52,7 @@
   path: resources.identityFuzz.properties.template.resources.identity.properties.isolationScope
   equals: None
 
-- decision: user-assigned-identity__fuzz.identity.role_assignments
+- decision: wiring.role_assignments
   stage: production
   path: parameters.identityRoleAssignments.value
   equals: []
@@ -71,7 +71,7 @@
   path: resources.identityTune.properties.template.resources.identity.properties.isolationScope
   equals: None
 
-- decision: user-assigned-identity__tune.identity.role_assignments
+- decision: wiring.role_assignments
   stage: production
   path: parameters.identityRoleAssignments.value
   equals: []
@@ -118,7 +118,7 @@
   path: resources.registry.properties.template.resources.registry.identity
   absent: true
 
-- decision: container-registry.identity.role_assignments
+- decision: wiring.role_assignments
   stage: production
   path: parameters.registryRoleAssignments.value
   equals: []

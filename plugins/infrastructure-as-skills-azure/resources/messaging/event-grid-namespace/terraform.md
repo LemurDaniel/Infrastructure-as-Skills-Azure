@@ -124,7 +124,7 @@ module "event_grid_namespace" {
   tags             = local.tags
 }
 
-# decision: event-grid-namespace.namespace.minimum_tls_version, mqtt.mqtt_broker - not carried by the module
+# decision: event-grid-namespace.namespace.min_tls_version, mqtt.mqtt_broker - not carried by the module
 resource "azapi_update_resource" "event_grid_namespace_settings" {
   type        = "Microsoft.EventGrid/namespaces@2025-02-15"
   resource_id = module.event_grid_namespace.resource_id

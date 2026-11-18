@@ -31,6 +31,17 @@ IP Protection is named here so the choice is visible and not improvised.
 Deletion runs the other way: a plan that a network still references refuses to go, and the error
 names the network.
 
+## Roles
+
+A role on the plan is a `wiring.role_assignments` entry with it as `to`. Associating a
+network with a plan in another subscription needs read access on the plan for the identity
+that deploys the network: `Network Contributor` on the plan is the usual grant, and `Reader`
+is enough for the association alone. Under `deployment` the same identity deploys plan and
+networks, and the spec has no entry.
+
+A plan that several subscriptions share has one entry per subscription's deploying identity
+(`from: { existing: principal }`), and that list is the platform's, not a workload's.
+
 ## Pitfalls
 
 **A plan that nothing references bills and protects nothing.** The plan is the subscription to the
@@ -43,7 +54,7 @@ most expensive line on its bill. `ownership: platform` is the default for that r
 `stages_with_plan: production` for the same reason one level down.
 
 **The plan is tenant-wide, the association is not.** Networks in other subscriptions of the same
-tenant can reference the plan; the deploying identity needs rights on it (`role_assignments`).
+tenant can reference the plan; the deploying identity needs rights on it (*Roles*).
 A network in another tenant cannot.
 
 **The logs are on the public IP.** `DDoSProtectionNotifications`, `DDoSMitigationFlowLogs` and

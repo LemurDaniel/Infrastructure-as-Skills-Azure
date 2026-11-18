@@ -69,7 +69,9 @@ in every run, in this order; the sections below carry the detail.
    with a placeholder, never a plausible value. A default is not a guess: the stage stack
    `[development, test, production]` stays unless the customer named the stages.
 6. **Spec, diagram, sign-off, then code.** No `.tf` or `.bicep` before the customer's yes,
-   also when the request already said "then write the code".
+   also when the request already said "then write the code". **The spec is written before the
+   design is shown** (Phase 4): the tick list, the security block and the account are read
+   from it, never composed from memory and checked against it afterwards.
 7. **The turn ends on a question** - the draft question on the rough picture, the code
    question on the polished one - also when the diagram could not be drawn.
 8. **A check is run, not read.** `check_spec.py`, `verify_diagram.py`, `check_render_coverage.py`
@@ -85,11 +87,22 @@ question sets - by that absolute path. Never search for them with Glob from the 
 directory: the plugin is outside it, and a search there may be refused. A file that cannot be
 read is no reason to skip the step that needs it; say which step and why.
 
+### Which Python
+
+The commands in these skills are written `python3`. Use the first of `python3`, `python` and
+`py -3` that runs a script, and reuse it for the rest of the run: on Windows `python3` is
+often a stub that prints "Python was not found". Every script needs PyYAML and says so
+when it is missing, with exit 2 - "could not run", never a result. Then offer once, in
+`context.language`, to install it (`pip install pyyaml`); a no, or no Python at all, is a
+session without the scripts and follows *Without a shell* below. Exit codes are the same
+everywhere: 0 clean, 1 the check found something, 2 the script could not run, and 3 only
+from the version gate.
+
 ### Without a shell
 
 The scripts - `write_spec.py`, `check_spec.py`, `export_decisions.py`, the diagram scripts,
 `sync_claude_md.py` - need Python and a shell. A session without one (a sandbox, a host that
-grants no Bash) loses the tools, not the rules:
+grants no Bash, a shell without Python or PyYAML) loses the tools, not the rules:
 
 - The version gate and the `CLAUDE.md` section are done by hand with Read and Edit, as their
   sections say; the spec is written in its canonical form by hand and called unvalidated.
@@ -110,9 +123,11 @@ writes goes into the repository's IaC root, or `infra/` when there is none, and 
 committed with the code — it is what the next run extends. The rules for both, and for
 several roots, are in [references/spec.md](references/spec.md#where-it-lives).
 
-**Version gate, first.** Where a spec was found, run `python <plugin>/core/iac-authoring/scripts/check_plugin_version.py <spec>`
+**Version gate, first.** Where a spec was found, run `python3 <plugin>/core/iac-authoring/scripts/check_plugin_version.py <spec>`
 (without a shell: read `version` in `<plugin>/.claude-plugin/plugin.json` and `spec.plugin_version`
 and compare them as numbers yourself; a spec without the field is not held back).
+Any exit other than 0 or 3 means the script could not run: do the comparison by hand, as
+without a shell - never read it as a pass.
 Exit 3 - or a spec version higher than the installed one - means the spec was written by a newer plugin than the installed one: **stop** - no sync, no
 question of the interview, nothing written or rendered. Ask once with AskUserQuestion, in
 `context.language`: the spec's and the installed version, and "Plugin jetzt aktualisieren?" / "Update the plugin now?" with
@@ -127,7 +142,7 @@ this run writes into the spec sets `spec.plugin_version` to the installed versio
 (`.claude-plugin/plugin.json`).
 
 Then bring the repository's `CLAUDE.md` section up to date, before
-anything else is asked: `python <plugin>/core/iac-rendering/scripts/sync_claude_md.py
+anything else is asked: `python3 <plugin>/core/iac-rendering/scripts/sync_claude_md.py
 <repo-root> --root <iac-root> --write`. It replaces only an older plugin section, leaves a
 newer one alone and never fails the run (without a shell, apply the same rules by hand with
 Read and Edit, from [claude-md-block.md](../iac-rendering/references/claude-md-block.md)); say in one line what it did. A section **newer**
@@ -162,8 +177,8 @@ ask what the system needs; I set the technical decisions from the baseline and s
 you at the end." There is
 no second set of questions for someone technical. What the person knows beyond them they
 say in prose - "ZRS", "subnet snet-pe-01", "TLS 1.2 is enough" ("TLS 1.2 reicht") - and Phase 0 records it as
-`stated`, which outranks every default; what they want changed afterwards is an
-`overridden` value in the spec, not a second interview.
+`stated`, which outranks every default; what they want changed afterwards is a value with
+`source: { overridden: <reason> }` in the spec, not a second interview.
 
 No question with Azure vocabulary reaches the person, whatever it would cost to default
 it. The cost of a wrong default is a line in Phase 4 that the person can object to; the
@@ -385,13 +400,28 @@ mapping:
   reachable is fine" ("Öffentlich erreichbar ist okay") said about the development stage is said about the system: the
   exposure is `public` in every stage, the network `none` in every stage. A run never
   splits a posture decision (exposure, local auth, keys, DNS, landing zone) by stage; only
-  the customer's explicit word for a named stage does, recorded as `overridden` there.
-- **An empty list is not always an answer.** Storage role assignments with shared keys
-  off: an empty default renders an account nobody can use, so it is an `open:` entry with
-  its owner rather than a decided value - read the question's `why` before recording `[]`.
+  the customer's explicit word for a named stage does, recorded `{ overridden: <reason> }` there.
+- **A role is wiring, never a resource's decision.** Who holds which role on which resource
+  is one entry `{ from, to, role }` of `wiring.role_assignments`, the same list for every
+  stage ([spec.md](references/spec.md#role-assignments)); no resource carries a role list.
+  A keyless resource (`local_auth: disabled`) is of no use until someone holds a role on
+  it. Another resource of the spec reaches it: write the entry - the target's `notes.md`,
+  *Roles*, names the narrow role. Nobody the spec names reaches it - a resource on its own,
+  a consumer outside the deployment: one `open:` entry whose `key` is literally
+  `wiring.role_assignments`, never the resource's key path, saying which resource waits
+  for a role and who names the consumer. `check_spec.py` warns on the gap.
 - **Context values are bare.** `context:` holds values (`environments: [...]`,
   `workload: payments`, a per-stage map), not `value:`/`source:` records; the provenance
   of a context value is the deployment set's, under `deployment:`.
+
+**Then look for a pattern.** Once the request or the description says what the system is,
+read [patterns/routing.md](../../patterns/routing.md) - by its absolute path under
+`<plugin>` - and take the row it fits. One row fits: that pattern is the design's starting
+point, recorded `pattern.id` with `source: stated`; it is never a question of its own, the
+customer confirms the system at Phase 4's list. Two fit, or it is unclear: one
+`AskUserQuestion` with the candidates' `summary` as options and "none of these" / "Keins
+davon" last (`source: asked`). No row fits, or the request names single resources: no
+pattern, and nothing in this skill changes. A request is never bent into a pattern.
 
 What remains open goes into Phase 3's batches. The description does not replace them; it
 shrinks them by what it happened to settle.
@@ -425,9 +455,10 @@ and six Bicep files, and comparing the two outputs stops meaning anything. See
 
 `deployment.module_source` is not read from the repository: it is asked first, in Phase 0,
 and the repository only decides which answer is recommended (authored resource blocks
-already there → `authored`). Under `avm` the split above is mostly decided too: one module
-call per resource, the root holding the wiring, so `single` unless a pattern says
-otherwise.
+already there → `authored`). Under `avm` the list above decides as for any code: one module
+call per resource and the root holding the wiring is `single` for a single resource or
+family, `per-family` once the resources span more than one - unless the chosen pattern
+carries a `composition` of its own.
 
 ## Phase 2 — Resolve the deployment set, then every resource question
 
@@ -459,7 +490,7 @@ resource, in two halves:
 Resolve it once and every resource inherits it. A resource question carrying
 `answer: { deployment: <id> }` is answered from there and never asked again - with its `map`, in the
 question's own values, which the interview digest prints (`network_exposure: private` is
-`public_network_access: disabled`, `local_auth: disabled` is `shared_access_key_enabled: false`);
+`public_network_access: disabled`, `local_auth: allowed_where_unavoidable` is a namespace's `local_auth: enabled`);
 never translated by hand. Eight resources in
 one run must not produce eight separate exposure answers, and a system is not private
 because seven of them are.
@@ -483,8 +514,9 @@ resolved and written like any other - its access and authentication decisions li
 in the deployment set - `application_monitoring:
 enabled` with an application (App Service, Function App, Container Apps) brings one
 `application-insights` component that every application's `application_insights` names - its
-connection and authentication settings and its `Monitoring Metrics Publisher` role are rendered
-with the application, they are infrastructure, not application code - a registry or
+connection and authentication settings are rendered with the application, they are
+infrastructure, not application code, and with `local_auth: disabled` each application's
+identity holds `Monitoring Metrics Publisher` on it (a `wiring.role_assignments` entry) - a registry or
 identity requirement brings its own resource. Work out the full resource list from the
 deployment set first, then read all of the sets in one pass. A set read after the batch, or
 after Phase 5 has begun, means its interview questions could not be asked and its defaults
@@ -494,7 +526,9 @@ are guesses.
 <family>/<resource>... --language <context.language>` prints the deployment set and every set
 named - each interview question with its values and `forced_when`, every question that is
 forced, derived or required, and each set's boundaries - at a fifth of the files'
-size; `--why <id>` adds the reasoning where a default is justified. Never extract the
+size; `--why <id>` adds the reasoning where a default is justified; `--pattern <id>` puts the
+chosen pattern in front - its parts, its asks, what it answers and wires - and adds the sets
+of its parts, so they are not named again. Never extract the
 questions with a script of the run's own: one that keeps `ask` and `accepts` drops
 `forced_when`, and a question a rule settles is asked anyway.
 
@@ -502,10 +536,10 @@ For each question, the answer then comes from the first source that has one:
 
 | # | Source | `source` recorded as |
 |---|---|---|
-| 1 | What the user said — the request and the Phase 0 description | `stated`, or `overridden` where it changes a carried value |
+| 1 | What the user said: in the request or the Phase 0 description, or as an answer in the interview | `stated` for the first, `asked` for an interview answer; `{ overridden: <reason> }` where it changes a carried value or departs from a default |
 | 2 | The existing `infra-spec.yaml` | The source it already has; `carried` only for what the repository holds without one (a pipeline, a `modules/` layout) |
-| 3 | A pattern skill's pre-answers | `pattern` |
-| 4 | The deployment set's answer: copied for an `answer: { deployment }` question, mapped through the question's table for an `answer: { question, map }` one | `deployment`, or `{ derived_from: deployment.<id> }` |
+| 3 | The chosen pattern's pre-answers, written by `apply_pattern.py` | `pattern` |
+| 4 | The deployment set's answer: copied for an `answer: { deployment }` question, mapped through the question's table for an `answer: { question, map }` one; for a `derived` question what the landing-zone answers imply | `deployment`, or `{ derived_from: deployment.<id> }`; `platform` for the landing-zone case; `{ forced_by: <key> }` where another answer determined it |
 | 5 | The question's `default` | `default` |
 
 A carried value outranks a pattern and a default on purpose: it was decided, and quite
@@ -518,7 +552,7 @@ A question with `required: true` has no default and no safe guess. It is the onl
 must ask. A question with `resolved_by: interview`
 ([question-set-format](references/question-set-format.md#who-resolves-it-resolved_by)) is
 put to the person; one with `resolved_by: derived`, or none, is never put to a customer —
-it resolves from the profile or the default, and a
+it resolves from the interview's answers or the default, and a
 `required` one nobody present can answer becomes an `open:` entry naming its owner.
 
 **A forced value is pre-answered, not asked.** `key_protection: hsm` requires a Premium Key
@@ -537,7 +571,7 @@ hold against a wrong stage file; Phase 4 says so. `check_spec.py` fails on a `cr
 `subscription`-scoped deployer role under it.
 `deployment.deployer_roles` is such a value, written last, once every resource is resolved:
 the roles the deploying identity needs beyond `Contributor`, derived from `create` groups,
-role assignments and secret placeholders (`forced_when` in the deployment set).
+`wiring.role_assignments` and secret placeholders (`forced_when` in the deployment set).
 
 Defaults are not invented per resource — they come from
 [references/guardrails.md](references/guardrails.md), which is also where their reasoning
@@ -545,11 +579,11 @@ lives. Read it before choosing any default or justifying one.
 
 ## Phase 3 — Ask, in one batch
 
-Only what Phase 0's description left open reaches this phase, and only the questions the
-mode allows. A question the user already answered in prose and is asked again tells them
+Only what Phase 0's description left open reaches this phase, and only the questions marked
+`resolved_by: interview`. A question the user already answered in prose and is asked again tells them
 the description was not read.
 
-**Never asked in any mode, whatever the description leaves open: the workload short name,
+**Never asked, whatever the description leaves open: the workload short name,
 the subscription id, the resource group and the region.** They are `parameterized` context
 in the deployment set - input variables the stage file supplies, not decisions. A question
 about them, "there is no default for these" included, is a bug in the interview: the person
@@ -604,7 +638,15 @@ chip holds twelve characters). A topic of more is several calls in a row, and th
 header is numbered** - *Rahmen 1/3*, *Rahmen 2/3*, *Rahmen 3/3* - so the same word never
 appears twice in a row without telling the person how far along they are; a topic of one call
 carries no number; small neighbouring topics
-share a call only when each of them is a single question. Before each call one line of
+share a call only when each of them is a single question. **A question whose `depends_on` names
+another interview question, or whose options read its answer, goes into a later call than that
+question, never beside it**: whether
+it is asked, and what its options mean, follow from that answer. `central_logging`,
+`central_network` and `central_private_dns` come only after `landing_zone_exists` is answered
+`no`; `resource_lock` comes only once the stages are known - with production alone, "only in
+production" and "in every stage" are the same answer and the option is left out. This
+outranks the four-per-call cut: the call that splits off keeps the topic's numbered header.
+Before each call one line of
 plain text names the topic and the person's place ("Netzwerk - Frage 1-2, danach Sicherheit,
 Daten"); it is a message of its own, never part of a `question` text, which holds the question
 and nothing else. Nothing reasoned or reported stands between the calls - the batch is never
@@ -654,7 +696,7 @@ the sum of the subnets, and the subnets follow from the compute (`app_runtime`,
 question takes its derived value or its default; a `required` question of either
 kind that nothing answers becomes an `open:` entry with its owner named, and Phase 4
 says so. Put the batch in the customer's words — the `ask` texts of the `requirements`
-group are written for that — and never a decision's vocabulary (`ZRS`, `TLS1_2`, a
+group are written for that — and never a decision's vocabulary (`ZRS`, `enabled_with_firewall`, a
 subnet) in a question to a customer.
 
 Phase 1 asks nothing: the target was Phase 0's first question and the layout is read
@@ -687,7 +729,7 @@ reference a name nobody has.
 
 **A reference is written in one of two forms** ([spec.md](references/spec.md#references)):
 `{ resource: <key> }` for a resource of this spec, with `part: <name>` where the kind is a part
-(`{ resource: virtual-network, part: snet-app }`), one value for every stage; or
+(`{ resource: virtual-network, part: app }`), one value for every stage; or
 `{ existing: <kind> }` for one outside it. An existing one carries `id:` per stage only where
 the person gave the resource ids; a name without an id ("the platform workspace
 law-platform-prod" / "der Plattform-Workspace law-platform-prod") is never written as a value -
@@ -706,8 +748,25 @@ rather than deciding it for them.
 
 ## Phase 4 — Show the design, report what was defaulted, then ask once
 
+**The spec is written first, and everything this phase shows is read from it.** As soon as
+the interview is done, write `infra-spec.yaml` (where and how: *Then write the spec* in
+Phase 5), lay it out with `write_spec.py` and run `check_spec.py`; a violation or a warning
+is fixed before anything is shown. Every line below is then a value of that file: a number
+(retention days, soft-delete days, an address range), a role and its scope, a model, and
+which parts are reachable from the internet are read off it - never off memory, and never
+off the examples in this section, whose numbers illustrate the shape and are not defaults.
+A design shown first and written afterwards is one the spec quietly departs from, and the
+person has signed off on the departure without seeing it. **Every resource whose
+`public_network_access` is not `disabled` is named as reachable from the internet**, with
+what makes it so - a workspace or a monitoring component public by its set's default
+included - and the line that the rest stays private names only what is. Every `open:` entry
+is shown under *Offen* / *Open*, and "nothing open" is said only when the spec has no `open:`
+entry and `check_spec.py` reports no missing required value. A change at the sign-off is an edit of the spec, followed
+by `check_spec.py` and the list again. Nothing else - decision document, diagram, code - is
+written before the yes.
+
 **First the design, as a list the customer ticks off**. Before
-the account of defaults and before any file is written, say in the customer's words what
+the account of defaults, say in the customer's words what
 will be built: one line per part with what it is for, one line per connection, the handful
 of decisions that cost money or change what the system can do. Nothing technical, no
 attribute names - the customer recognises their system or says what is missing, which is
@@ -814,7 +873,7 @@ it that way*, so it is in front of the person while they answer.
 
 Close it with one `AskUserQuestion`: **Passt das Design?** / **Does the design fit?** - *Ja, so bauen* / *Yes, build it that way* (recommended
 when nothing is open) / *Etwas fehlt oder ist zu viel* / *Something is missing or too much* (the person says what; the spec is
-not written until the list is right). A part the customer strikes is removed, a part they
+changed, checked and the list shown again until it is right - nothing but the spec is written before the yes). A part the customer strikes is removed, a part they
 add goes through `azure-resources` like any other request, and the account below is
 redone for the change. A security row the person wants different comes through the
 dialog's free answer: only that row is opened and recorded
@@ -887,12 +946,12 @@ to see it to disagree with it, and the ones they never look at cost one glance.
 ## Phase 5 — Working mode, spec, diagram loop, then the code question
 
 Phase 5 runs in this order, for a new spec and for the extension of an existing one alike:
-**working mode, spec, diagram loop, code question.** Nothing before the working mode is
-written or drawn, and nothing after the diagram loop is generated until the code question
-has been answered with a yes.
+**working mode, spec, diagram loop, code question.** The spec exists from Phase 4 and is
+completed here; nothing else is written or drawn before the working mode, and nothing after
+the diagram loop is generated until the code question has been answered with a yes.
 
 **First, ask how the rest of the run works - once, as the first step of Phase 5, before
-the spec is written.** With the Agent tool available, ask through `AskUserQuestion`:
+anything but the spec is written.** With the Agent tool available, ask through `AskUserQuestion`:
 **Subagents** (recommended) or **Same session**. The answer covers both loops that follow -
 the diagram loop below and the code loop of [iac-rendering](../iac-rendering/SKILL.md)
 after the yes - and it is a working mode, not a decision: it is not written to the spec.
@@ -919,7 +978,8 @@ How should I continue?
   2. In this session - I do everything myself, one step after the other. Cheaper, no second review
 ```
 
-**Then write the spec.** `infra-spec.yaml` goes into the user's repository — the IaC root,
+**Where the spec goes and how it is written** - it was written in Phase 4, before the design
+was shown; these are the rules that writing follows. `infra-spec.yaml` goes into the user's repository — the IaC root,
 or `infra/` — is laid out with `write_spec.py` (order, group comments, the plugin version;
 it changes no value and keeps every comment; without a shell, write it in that
 [canonical form](references/spec.md#canonical-form) by hand) and validated with
@@ -962,6 +1022,11 @@ otherwise the line is simply absent.
 `owner` of every `open:` entry are printed verbatim into the picture, the `question` into
 the decision document (the picture counts the open entries by owner and points at the
 document), so an English label there is a `spec` finding of the review. Keys, values, `why`, `reason` stay English.
+The German wording in this skill - the lists, the option texts, a phrase in brackets - is the
+`de` variant of a template and nothing else: under `language: en` none of it reaches the spec,
+and each of those four is written in English (`HTTPS 443, company network only`, never
+`HTTPS 443, nur aus dem Firmennetz`). A purpose is the request's own words for a part; a part
+the request gives no purpose - the workspace, the monitoring component, the network - gets none.
 
 **Write the decision document in the same step**, in the user's language:
 
@@ -1084,8 +1149,8 @@ The picture is polished (infra/infra-diagram.drawio.png). Shall I generate the c
   - Not yet                   -> stop here; the spec and the picture stay, the next run extends them
 ```
 
-"Change something" ("Etwas ändern") loops back to the spec, never into code: change the decision there, as
-`overridden` where it replaces an answer, re-export the decision document, redraw, and show
+"Change something" ("Etwas ändern") loops back to the spec, never into code: change the decision there, with
+`source: { overridden: <reason> }` where it replaces an answer, re-export the decision document, redraw, and show
 the new draft with the draft question. An objection to the polished picture itself ("the
 arrows overlap" / "die Pfeile überlappen sich") is a review finding that the review missed: it
 goes to the fix agent like any other `error`, and the customer sees the picture again only
@@ -1131,55 +1196,35 @@ Do not skip the explanation on the grounds that the plan output is right there. 
 list of attribute diffs; what a reviewer needs is which of those diffs are
 service-affecting and which are noise, and that is a judgement the plan cannot make.
 
-## Composition: how a pattern drives a resource
+## Patterns: a whole system at once
 
-A pattern skill does not re-ask a resource's questions. It supplies a pre-answer block
-keyed by resource, entering resolution at precedence 2:
+A pattern ([patterns/routing.md](../../patterns/routing.md)) names the parts of a system,
+asks the few questions only it can ask, answers what the system implies in the parts'
+question sets, and owns what no single set can: the wiring - which identity holds which role
+on which part, which setting reads which secret. It is chosen in Phase 0, read through the
+digest and written by a script; the format and the rules are in
+[references/pattern-format.md](references/pattern-format.md#in-the-interview).
 
-```yaml
-pre_answers:
-  storage-account:
-    public_network_access: disabled
-    shared_access_key_enabled: false
-    replication: ZRS
-  key-vault:
-    rbac_authorization: true
-```
-
-Two rules make this work:
-
-- **A pattern may pre-answer, never contradict the user.** If the user asked for something
-  the pattern pre-answers differently, the user wins — and you say what the pattern
-  expected and what the departure implies for the rest of the system.
-- **The wiring belongs to the pattern.** Private endpoints, DNS zone links, role
-  assignments between the parts, diagnostic routing: no single resource question set can own a
-  relationship, so the pattern renders it. This is the genuinely hard part and the main
-  reason pattern skills exist.
-
-A pattern may also fix the module split, since it is the only layer that knows which parts
-get reused separately. It does that by supplying `composition.modules` entries, recorded
-with `source: pattern` like any other pre-answer:
-
-```yaml
-composition:
-  granularity: per-resource
-  modules:
-    - id: storage
-      contains: [storage-account]
-      outputs: [id, principal_id]
-    - id: app
-      contains: [app-service]
-      needs: [storage]
-```
-
-The wiring between them stays in `wiring:` and renders into the root, not into a module —
-a module that reaches into another module's resources is the failure this split exists to
-prevent.
+- **The pattern's share is written by `apply_pattern.py`, never by hand**: `python3
+  <plugin>/core/iac-authoring/scripts/apply_pattern.py <id> --answer <ask>=<value> ...
+  --language <context.language> --environments <stages>` prints `pattern:`, the parts with
+  their purposes and pre-answers, and `wiring:`, every value `source: pattern`. Which lines
+  hold for which answers is the script's to work out. Without a shell the pattern is read
+  from its file and every `when` applied by hand, said so in Phase 4.
+- **The customer wins.** A pre-answer they contradict takes their value with `source:
+  { overridden: <reason> }`, and Phase 4 says what the pattern expected and what the
+  departure changes. A part they do not want goes with every wiring line that names it; a
+  wiring list changed that way is `stated`, no longer `pattern`.
+- **Everything else is resolved as always.** The pattern answers no question the customer is
+  asked, none a requirement derives and no deployment decision: the batch, the requirements
+  and the sets' defaults run over the pattern's parts as over any resource, and the network,
+  its security groups, the endpoints and the monitoring come from the deployment decisions.
+- **Its boundaries are said out loud** in Phase 4, with the open items they name.
 
 ## Adding a resource
 
-A resource goes into a family under `resources/` — `storage`, `network`, `observability`
-today, `compute`, `data`, `security` planned. Families are not skills; the single
+A resource goes into a family under `resources/` - the families are the rows of the
+[azure-resources](../azure-resources/SKILL.md) table. Families are not skills; the single
 [azure-resources](../azure-resources/SKILL.md) skill routes into all of them. Inside the
 family:
 
@@ -1224,6 +1269,7 @@ Read as needed, not up front:
 |---|---|
 | [references/spec.md](references/spec.md) | Writing or reading `infra-spec.yaml` |
 | [references/question-set-format.md](references/question-set-format.md) | Authoring or extending a `questions.yaml` |
+| [references/pattern-format.md](references/pattern-format.md) | A pattern was chosen, or one is being written |
 | [references/guardrails.md](references/guardrails.md) | Choosing or justifying any default, or weighing an exception |
 | `scripts/export_decisions.py` | Rendering the spec as `infra-decisions.md`, the customer's decision document |
 | [iac-diagram](../iac-diagram/SKILL.md) | Drawing the spec as `infra-diagram.drawio.png` for the customer |

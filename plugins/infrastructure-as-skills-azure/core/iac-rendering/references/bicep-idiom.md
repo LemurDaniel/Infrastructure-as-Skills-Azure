@@ -22,7 +22,9 @@ A `.bicepparam` file per stage beats one parameter file with conditionals inside
 the stage's subscription is the deployment's scope on the command line
 (`az deployment group create --subscription <stage's> -g <stage's rg>`), one per stage.
 Every decision whose question is `per_environment`, or whose spec value is a map keyed by
-stage, is a `param` without a default whose value lives in the stage file — the address
+stage, and every size or cost knob (`stage_parameter` or `non_production_default`, `[stage
+file]` in the render digest, also with one stage; a value recorded `forced` stays a literal
+with its `forced_by` in the comment), is a `param` without a default whose value lives in the stage file — the address
 range, the subnets, `storageSkuName` and `logRetentionDays` that `non_production_savings`
 sets cheaper outside production — never a literal in the template. A stage whose values
 are still `open:` gets its file with placeholders (the all-zero GUID, `OPEN-<what>`), and an
@@ -363,7 +365,7 @@ decorator, so a redeployment never overwrites the value somebody set. Never an `
 or a "seed" parameter, never a lookup of the secrets that exist, never the value as a
 parameter - each of them overwrites, or leaks, on a redeployment. The names are the spec's
 decision and the same in every stage: a `var` in `main.bicep`, never a stage-file parameter (only
-a `per_environment` value is one). The full block, with its decisions:
+a `per_environment` value or a size or cost knob is one). The full block, with its decisions:
 `<plugin>/resources/security/key-vault-secret/bicep.md`.
 
 ```bicep

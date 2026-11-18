@@ -51,13 +51,13 @@ data "naming_name" "storage_account" {
   resource = "Azure::Microsoft.Storage/storageAccounts"
 }
 
-# One name per sub-resource through the convention's <?SUBNAME;-%s> token, so the
+# One name per sub-resource through the convention's <?PURPOSE;-%s> token, so the
 # index stays last: pep-we-prod-invoicing-blob-01.
 data "naming_name" "private_endpoint" {
   for_each = toset(var.private_endpoint_subresources)
 
   resource   = "Azure::Microsoft.Network/privateEndpoints"
-  parameters = { subname = each.key }
+  parameters = { purpose = each.key }
 }
 
 module "storage" {
@@ -142,7 +142,7 @@ module "storage" {
     }
   }
 
-  # Data-plane roles on the account. Empty until the consumer is named (spec: open).
+  # decision: wiring.role_assignments - the entries with this account as `to`
   role_assignments = {
     for ra in var.role_assignments : "${ra.principal_id}-${ra.role}" => {
       role_definition_id_or_name = ra.role
@@ -215,7 +215,8 @@ none); `resource.identity[0].type` for the managed identity; `resource.name` and
 
 Not observable, marked `# not-testable: <key> - set through the module's <input>; the
 module's own tests cover the mapping`: the five `blob_properties` decisions, the three
-diagnostic decisions, `role_assignments`, and `private_endpoint_subnet` — all land in
+diagnostic decisions, `wiring.role_assignments` where it is set through this input, and
+`private_endpoint_subnet` — all land in
 child modules whose bodies no output exposes. Note that `allow_azure_services_bypass`
 became testable with the module, where the authored render could not observe it.
 
@@ -325,7 +326,7 @@ One endpoint per sub-resource, in `res.storage.network.tf`. The DNS zone is refe
 created:
 
 ```hcl
-# One name per sub-resource through the convention's <?SUBNAME;-%s> token, so
+# One name per sub-resource through the convention's <?PURPOSE;-%s> token, so
 # the index stays last: pep-we-prod-invoicing-blob-01. Appending the sub-resource
 # to a finished name puts it after the index, and the Bicep render of the same
 # spec then names the endpoint differently.
@@ -333,7 +334,7 @@ data "naming_name" "private_endpoint" {
   for_each = toset(var.private_endpoint_subresources)
 
   resource   = "Azure::Microsoft.Network/privateEndpoints"
-  parameters = { subname = each.key }
+  parameters = { purpose = each.key }
 }
 
 resource "azurerm_private_endpoint" "storage" {
@@ -387,7 +388,9 @@ plan time and fails at apply.
 
 ## Role assignments
 
-Scoped to the container where possible, never to the subscription:
+The entries of `wiring.role_assignments` with this account as `to`; where they render and
+where the principal id comes from is in [role-assignments.md](../../../core/iac-rendering/references/role-assignments.md).
+Authored, an entry on a `blob-container` takes the container's id as its scope:
 
 ```hcl
 resource "azurerm_role_assignment" "data" {
@@ -483,13 +486,13 @@ run "naming" {
   # The naming provider is not mocked: the name is asserted as it will be
   # deployed, which is also the test that catches an edited naming.yaml.
   assert {
-    condition     = can(regex("^stweprodinvoicing[a-z0-9]{4}$", azurerm_storage_account.this.name))
-    error_message = "The name must come from naming.yaml, not from a literal; the suffix is <UNIQUE_ID_4>."
+    condition     = can(regex("^stweprodinvoicing[a-z0-9]{3}$", azurerm_storage_account.this.name))
+    error_message = "The name must come from naming.yaml, not from a literal; the suffix is <UNIQUE_ID_3>."
   }
 
   assert {
     condition     = azurerm_private_endpoint.storage["blob"].name == "pep-we-prod-invoicing-blob-01"
-    error_message = "Private endpoint name: <?SUBNAME> before the index."
+    error_message = "Private endpoint name: <?PURPOSE> before the index."
   }
 }
 
@@ -533,7 +536,7 @@ run "identity" {
     error_message = "No identity of its own."
   }
 
-  # decision: storage-account.identity.role_assignments
+  # decision: wiring.role_assignments
   assert {
     condition     = length(azurerm_role_assignment.data) == 0
     error_message = "No consumer named yet, so no assignment - open in the spec."
@@ -543,7 +546,7 @@ run "identity" {
 run "security" {
   command = plan
 
-  # decision: storage-account.security.shared_access_key_enabled
+  # decision: storage-account.security.local_auth
   assert {
     condition     = azurerm_storage_account.this.shared_access_key_enabled == false
     error_message = "Shared key auth must stay off; access is via Entra ID and RBAC."

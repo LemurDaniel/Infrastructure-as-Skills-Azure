@@ -30,6 +30,7 @@ grouping costs nothing; a case's `prompt.md` reaches the plugin with `plugins: [
 | `trigger/` | That a request triggers the plugin at all | `trigger-workload-request` |
 | `language/` | The language of the person is the language of everything said to them | `language-en-request`, `language-en-first-question` |
 | `sync/` | The version gate and the CLAUDE.md section in a repository that already holds a spec (scaffolded) | `plugin-newer-halts`, `claude-md-section-replaced` |
+| `patterns/` | A request that describes a system: the pattern chosen, its parts and wiring for the answers given, the customer's departure kept | `chat-rag-pattern`, `webapp-departure-wins`, `integration-nothing-invented`, `microservices-shared-environment` |
 | `render/` | The code the render writes, for the few rules a spec cannot show | `bicep-secret-placeholder-once`, `app-code-untouched`, `bicep-rerender-keeps-names`, `terraform-code-structure`, `terraform-existing-reference` |
 
 ## The cases
@@ -123,9 +124,9 @@ the same model.
 ## Keeping outputs good on the same scenarios
 
 `runs:` in each case's `prompt.md` is the consistency measurement, the same on every model:
-4 per case, and 2 for the six cases that cost about $2 or more per suite on Sonnet
+4 per case, and 2 for the ten cases that cost about $2 or more per suite on Sonnet
 (`diagram-no-invented-lines`, `language-en-request`, `requirements-stated`, `vague-public-dev`,
-`terraform-code-structure`, `terraform-existing-reference`) - halved for cost, accepting that they can only read 0, 50 or 100%. No
+`terraform-code-structure`, `terraform-existing-reference` and the four of `patterns/`) - halved for cost, accepting that they can only read 0, 50 or 100%. No
 `--runs` on the command line: it overrides every case's own value. A
 grader that passes in some runs but not all is a decision the plugin does not pin down. Three runs were too few - a case could only
 read 0, 33, 67 or 100%, and one run decided between "unstable" and "fine". Read those first — they are where a
@@ -157,7 +158,7 @@ behind in git.
 
 ## Adding a case
 
-Pick a combination the table does not have yet — a pattern skill once `patterns/` exists,
+Pick a combination the table does not have yet — a request two patterns fit,
 an extension run (a scaffolded repo that already holds a spec), a `custom` naming
 convention, a user who contradicts themselves. Write the prompt as a real user would,
 then one grader per decision the prompt settles and one per value it must not invent.

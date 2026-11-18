@@ -13,7 +13,7 @@ naming:
 boundaries:
   - "Does not create the vault. It is a child of one (`key-vault`) and inherits its tier, purge protection, network posture and RBAC model; a key cannot soften them."
   - "Does not decide the customer-managed keys of `deployment.key_management: customer_managed`. Those are the vault set's `customer_managed_keys` and share its `key_type`, `key_size`, `key_rotation_days` and `key_expiry_days`. This set is for a key whose decisions differ per key, or that is not a customer-managed key at all (signing, application-level envelope encryption). A key name appears in exactly one of the two."
-  - "Does not wire a consumer to the key. The consumer's identity gets its role on the key in the pattern that wires them, rendered as a `role-assignment`; `role_assignments` here is for the key's own readers."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not import key material (BYOK) or render secure key release policies (`release_policy`, a Premium vault with confidential-computing consumers). Both carry decisions of their own."
   - "Does not wire the near-expiry notification to anything. The rotation policy's notify action raises an Event Grid event; the Event Grid subscription that turns it into a mail or a ticket has no question set yet."
   - "Does not create Managed HSM keys. A Managed HSM is a separate resource."
@@ -77,29 +77,6 @@ groups:
           storage account's encryption only wraps and unwraps, one for signing only signs and
           verifies. Not an Azure term in the question: the customer knows whether the key is
           for their data at rest in a service, for signatures, or for their own application.
-
-  # ----------------------------------------------------------------- identity
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this key?"
-          de: "Wer braucht welche Rolle auf diesem Schlüssel?"
-        type: list
-        plain:
-          en: "Access rights on the key granted to: {value}."
-          de: "Zugriffsrechte auf den Schlüssel vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Scoped to the key (its versionless id), not the vault: `Key Vault Crypto Service
-          Encryption User` for a service that wraps and unwraps (storage, SQL, disks), `Key
-          Vault Crypto User` for an application that encrypts, decrypts, signs or verifies,
-          `Key Vault Crypto Officer` for the pipeline or person that creates and rotates it.
-          The consumer of a customer-managed key takes its identity here, and that identity
-          is user-assigned so the role exists before the consumer does. The module's own
-          interface is used for these; an assignment between two modules is a `role-assignment`.
 
   # ----------------------------------------------------------------- security
   - id: security

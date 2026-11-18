@@ -16,6 +16,18 @@ private endpoint and the shared private links to the data sources, then the role
 the service, then the consumers. The workspace before the diagnostic setting. Indexes,
 indexers and skillsets are created by the application afterwards, with a data-plane call.
 
+## Roles
+
+A role on the service is a `wiring.role_assignments` entry with it as `to`. With keys off,
+nothing reads or writes an index until one exists, so a service without a role for its
+caller works and is of no use to anyone. A consumer nobody has named is an `open:` entry
+(key `wiring.role_assignments`) owned by the workload owner, blocking apply.
+
+The roles are the narrow ones - `Search Index Data Reader` for a query client, `Search Index
+Data Contributor` for whatever loads documents, `Search Service Contributor` for whatever
+manages indexes and indexers. The roles the service's own identity needs on what an indexer
+reads (a storage account, a model) are entries with the service as `from`.
+
 ## Pitfalls
 
 **Replicas are availability, partitions are capacity.** Adding partitions does not make queries

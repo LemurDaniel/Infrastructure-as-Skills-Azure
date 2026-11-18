@@ -16,6 +16,18 @@ The disk encryption set and its key (for `customer_managed`), the disk access re
 the attachment to the machine - which is the machine's, and needs the disk's id and the
 machine's zone to match the disk's.
 
+## Roles
+
+A role on the disk is a `wiring.role_assignments` entry with it as `to`. The roles over the
+disk itself are `Disk Snapshot Contributor` for the identity that takes snapshots, `Disk
+Backup Reader` for the backup vault's identity, `Disk Pool Operator` for the storage pool
+that uses it - never `Contributor`, and never on the resource group for the sake of one
+disk. The machine that carries the disk needs no role on it.
+
+A disk without any entry is a working disk. A snapshot or backup identity that was named and
+holds no role is an `open:` entry (key `wiring.role_assignments`) owned by the workload
+owner.
+
 ## Pitfalls
 
 **A disk's zone must match the machine's.** A zonal LRS disk can be attached only to a machine

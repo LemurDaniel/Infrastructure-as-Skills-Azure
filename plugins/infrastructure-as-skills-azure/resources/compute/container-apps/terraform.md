@@ -144,6 +144,31 @@ The member names of `template`, `ingress` and `registries`, and the output names
 the README of the pinned version. The roles on the registry and the vault are granted before
 either module is applied, outside these calls.
 
+### Several apps in one environment
+
+With `hosting_environment: shared` the instance has **no `module "environment"`** and none of
+`workload_profile`, `zone_redundant`, `internal`, `infrastructure_subnet`,
+`public_network_access`, `peer_traffic_encryption` or the diagnostic decisions: they are the
+owner's. Its app takes the owner's environment id, and the order is owner's environment, then
+this app:
+
+```hcl
+module "app_worker" {
+  source  = "Azure/avm-res-app-containerapp/azurerm"
+  version = "~> 0.9.0"
+
+  # decision: container-apps__worker.environment.hosting_environment - shared with container-apps__api
+  container_app_environment_resource_id = module.environment.resource_id
+  workload_profile_name                 = "Consumption" # the owner's workload_profile
+  # ... the app's own decisions, as above: template, ingress, identity, registries, secrets
+}
+```
+
+One environment, one infrastructure subnet and one diagnostic setting, whatever the number of
+apps; the subnet is sized for the replicas of all of them. The assertions for the environment's
+decisions stay with the owner's file; this instance's tests assert
+`container_app_environment_resource_id` and the app's own decisions.
+
 ### Tests
 
 With `azapi` and `modtm` mocked, the modules' `resource` outputs are `azapi_resource` bodies,

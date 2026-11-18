@@ -45,7 +45,7 @@ decisions:
     terraform: { attribute: azurerm_eventhub_namespace.maximum_throughput_units, passthrough: true }
     bicep_avm: { attribute: maximumThroughputUnits, passthrough: true, note: module default ceiling 1 - written }
     bicep: { attribute: properties.maximumThroughputUnits, passthrough: true }
-  namespace.minimum_tls_version:
+  namespace.min_tls_version:
     terraform_avm:
       gap: module README v0.1.1 has no input for the minimum TLS version - the platform default applies; named in the handover, not-testable
     terraform: { attribute: azurerm_eventhub_namespace.minimum_tls_version, passthrough: true }
@@ -54,18 +54,18 @@ decisions:
   namespace.local_auth:
     terraform_avm:
       attribute: local_authentication_enabled
-      values: { disabled: false, allowed_where_unavoidable: true }
-      note: inverse; module default false - written
+      values: { disabled: false, enabled: true }
+      note: module default false - written
     terraform:
       attribute: azurerm_eventhub_namespace.local_authentication_enabled
-      values: { disabled: false, allowed_where_unavoidable: true }
+      values: { disabled: false, enabled: true }
     bicep_avm:
       attribute: disableLocalAuth
-      values: { disabled: true, allowed_where_unavoidable: false }
+      values: { disabled: true, enabled: false }
       note: module default true
     bicep:
       attribute: properties.disableLocalAuth
-      values: { disabled: true, allowed_where_unavoidable: false }
+      values: { disabled: true, enabled: false }
   namespace.managed_identity:
     terraform_avm:
       attribute: managed_identities
@@ -257,17 +257,6 @@ decisions:
     terraform: { attribute: azurerm_eventhub_namespace_disaster_recovery_config.partner_namespace_id }
     bicep_avm: { attribute: disasterRecoveryConfig.partnerNamespace }
     bicep: { attribute: disasterRecoveryConfigs child properties.partnerNamespace }
-
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm:
-      attribute: 'role_assignments.<k> = { role_definition_id_or_name, principal_id, principal_type }'
-      note: also per event hub
-    terraform: { attribute: azurerm_role_assignment, note: scope = the namespace's id }
-    bicep_avm:
-      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
-      note: also per event hub
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the namespace }
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:

@@ -35,6 +35,13 @@ needs is an input here rather than a separate resource, and a pattern skill supp
 ### The call
 
 ```hcl
+# Every subnet from the convention: the spec's short name (app, endpoints) as <PURPOSE>.
+data "naming_name" "subnet" {
+  for_each   = var.subnets
+  resource   = "Azure::Microsoft.Network/virtualNetworks/subnets"
+  parameters = { purpose = each.key }
+}
+
 module "network" {
   source  = "Azure/avm-res-network-virtualnetwork/azurerm"
   version = "~> 0.22.0"
@@ -48,7 +55,8 @@ module "network" {
 
   subnets = {
     for name, s in var.subnets : name => {
-      name             = name
+      # The short name is the purpose; an existing subnet keeps its azure_name.
+      name             = try(s.azure_name, data.naming_name.subnet[name].name)
       address_prefixes = [s.prefix]
       # Enabled, so the subnet's NSG and routes apply to private endpoint traffic.
       private_endpoint_network_policies = "Enabled"
@@ -101,10 +109,18 @@ resource "azurerm_virtual_network" "this" {
   tags = local.tags
 }
 
+# Every subnet from the convention: the spec's short name (app, endpoints) as <PURPOSE>.
+data "naming_name" "subnet" {
+  for_each   = var.subnets
+  resource   = "Azure::Microsoft.Network/virtualNetworks/subnets"
+  parameters = { purpose = each.key }
+}
+
 resource "azurerm_subnet" "this" {
   for_each = var.subnets
 
-  name                 = each.key
+  # The short name is the purpose; an existing subnet keeps its azure_name.
+  name                 = try(each.value.azure_name, data.naming_name.subnet[each.key].name)
   resource_group_name  = azurerm_virtual_network.this.resource_group_name
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = [each.value.prefix]

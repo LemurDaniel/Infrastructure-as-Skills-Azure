@@ -14,7 +14,7 @@ boundaries:
   - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform (`privatelink.eventgrid.azure.net`)."
   - "Does not create the Log Analytics workspace it routes diagnostics to, nor the storage account that receives undeliverable events, nor the custom topic MQTT messages are routed to."
   - "Does not create custom topics, system topics or domains - those are separate resource types with sets of their own. A namespace is for pull delivery and the MQTT broker."
-  - "Does not grant the publishers, the MQTT clients' operators and the delivery targets their roles - that is wiring between resources, owned by a pattern. It records the namespace's own role assignments in `role_assignments`."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not render access keys. Namespace topics carry keys the service creates by itself and the type has no switch to turn them off; none is read or written here, and a publisher that cannot use Entra ID is a named departure and an `open:` entry."
   - "Does not encrypt with a customer-managed key: the type exposes no key property. `key_management: customer_managed` is recorded as not applicable on this resource."
   - "The MQTT content - topic spaces, clients, client groups, permission bindings, CA certificates - is recorded as lists of names and rendered from the module README. Per-client certificate thumbprints and attributes change at the pace of the device fleet and belong to its registry, not here."
@@ -89,7 +89,7 @@ groups:
           `sku` and `capacity`; **the Bicep module has no input for either** and deploys the
           platform's one unit, so a larger namespace in Bicep is an authored render.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which TLS version is the lowest a publisher may use?"
           de: "Welche ist die niedrigste TLS-Version, die ein Publisher verwenden darf?"
@@ -115,13 +115,13 @@ groups:
           de: "Zugriffsschlüssel sind {value}."
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
-          allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
-        accepts: [disabled, allowed_where_unavoidable]
-        answer: { deployment: local_auth }
+          enabled: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: enabled } }
         forced_when: >
           The type has no switch: every namespace topic carries two keys the service creates
           and rotates on request, and nothing in the API turns them off. `disabled` is
-          therefore recorded as `forced` to `allowed_where_unavoidable` with the resource
+          therefore recorded as `forced` to `enabled` with the resource
           type as forced_by, and what the posture still buys is kept: no key is read, output
           or placed in a setting, publishers and receivers hold `EventGrid Data Sender` and
           `EventGrid Data Receiver`, and the right to list keys stays with the deploying
@@ -551,27 +551,6 @@ groups:
           An enumerated allowlist. An empty list denies every public caller, which is valid
           and deliberate. `0.0.0.0/0` is not an allowlist and is rejected by the guardrails;
           a single address takes `/32`.
-
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this namespace?"
-          de: "Wer braucht welche Rolle auf diesem Namespace?"
-        type: list
-        plain:
-          en: "Access rights on the namespace granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Data-plane access is granted by role, never by key. A publisher holds `EventGrid
-          Data Sender`, a pull receiver `EventGrid Data Receiver`, both scoped to the topic
-          they use, never the subscription; `EventGrid Data Contributor` and `EventGrid
-          Contributor` are for the deploying principal. MQTT clients are not Entra
-          principals: their access is `permission_bindings`. A pattern normally fills this
-          from the consumers it knows about and grants a consumer's role in the pattern.
 
   - id: observability
     title: Observability

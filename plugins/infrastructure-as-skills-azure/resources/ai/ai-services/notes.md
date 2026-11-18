@@ -17,6 +17,18 @@ workspace's diagnostic setting. `Face` and the gated Speech features need the su
 use-case registration approved before the account can be created at all; without it the apply
 fails with an eligibility error that no template fixes.
 
+## Roles
+
+A role on the account is a `wiring.role_assignments` entry with it as `to`. With keys off,
+nothing calls the service until one exists, so an account without a role for its caller
+works and is of no use to anyone. A consumer nobody has named is an `open:` entry (key
+`wiring.role_assignments`) owned by the workload owner, blocking apply.
+
+The narrow roles are per kind - `Cognitive Services Speech User`, `Cognitive Services
+Language Reader`, `Cognitive Services Custom Vision Trainer`, `Cognitive Services Face
+Recognizer` - and `Cognitive Services User` where a kind has none of its own. A role that
+can *list keys* has no business in a keyless account.
+
 ## Pitfalls
 
 **Several services are one resource type, and the set is one of two.** A request that names

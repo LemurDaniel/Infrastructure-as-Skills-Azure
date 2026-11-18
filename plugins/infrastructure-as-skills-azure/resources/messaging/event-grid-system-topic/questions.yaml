@@ -13,7 +13,7 @@ boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
   - "Does not create the source resource. A system topic is the event feed **of** an existing Azure resource (a storage account, a key vault, a resource group); the source is created by its own set first and referenced here."
   - "Does not create the delivery targets (queues, event hubs, functions) nor the storage account that receives undeliverable events, nor the Log Analytics workspace it routes diagnostics to."
-  - "Does not grant the topic's identity its roles on the delivery targets - that is wiring between resources, owned by a pattern. It records the topic's own role assignments in `role_assignments`."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Has no network surface of its own: a system topic is a control-plane resource with no endpoint, no public access switch and no private endpoint. The publish path is the source resource's; the delivery path is the target's."
   - "Does not render access keys: a system topic has none. Delivery authenticates with the topic's managed identity."
   - "Subscription filters beyond the event types (subject prefix and suffix, advanced filters) and per-subscription delivery tuning are recorded in `event_subscriptions` as free text and rendered from the module README."
@@ -335,26 +335,6 @@ groups:
         depends_on: { question: keep_undeliverable_events, equals: true }
         why: >
           The container is created by the storage set (blob container); this names it.
-
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this topic?"
-          de: "Wer braucht welche Rolle auf diesem Topic?"
-        type: list
-        plain:
-          en: "Access rights on the topic granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          A system topic has no data plane of its own - nobody publishes to it - so the only
-          roles are control-plane ones: `EventGrid EventSubscription Contributor` for a team
-          that manages its own subscriptions on a shared topic, `EventGrid Contributor` for
-          the deploying principal. Nothing here grants the topic's identity anything; its
-          roles on the targets are granted in the pattern.
 
   - id: observability
     title: Observability

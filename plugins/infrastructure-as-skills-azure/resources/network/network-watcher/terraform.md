@@ -88,7 +88,7 @@ module "network_watcher" {
   }
   # decision: network-watcher.monitors.connection_monitors
   condition_monitor = null
-  # decision: network-watcher.access.role_assignments
+  # decision: wiring.role_assignments
   role_assignments = {}
 
   enable_telemetry = false # deployment.module_telemetry: disabled
@@ -145,7 +145,7 @@ run "flow_logs" {
 # (traffic_analytics) and `.workspaceResourceId` (traffic_analytics_workspace) are asserted the same way.
 # not-testable: network-watcher.watcher.ownership - a data source under platform; the plan shows the mocked id only
 # not-testable: network-watcher.monitors.connection_monitors - azurerm_network_connection_monitor inside the module, no output of its body
-# not-testable: network-watcher.access.role_assignments - inside the module
+# not-testable: wiring.role_assignments - inside the module
 ```
 
 ## Authored rendering

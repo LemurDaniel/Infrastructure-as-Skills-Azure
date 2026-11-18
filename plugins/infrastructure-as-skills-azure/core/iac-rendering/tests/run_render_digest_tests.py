@@ -6,6 +6,9 @@ On tests/fixtures/render-digest.yaml (Terraform, AVM, per-family, GitHub):
   - every decision is printed under its key path, the one a test asserts, with the attribute
     and the literal its render-map.yaml gives the target (per stage for a stage map); the assumed
     value and the open entry are listed;
+  - every role assignment of the wiring names its target's module and implementation, the
+    role's model and where the principal id comes from - a resource's identity, or a
+    principal outside the spec with its id per stage and the placeholder of an open stage;
   - the reading list holds the Terraform idiom and the GitHub pipeline file and neither the
     Bicep idiom nor another platform's file; naming.md without its Bicep section;
   - an AVM resource reads its reference up to `## Authored rendering`, an authored one from
@@ -19,7 +22,8 @@ answer in a format of code and a null in values, through render_lines directly.
 Across the plugin: every heading SKIPS names exists in its file (a renamed heading fails here,
 not as a silently longer reading), and every resource's rendering reference with an AVM part
 has the `## Authored rendering` heading the split depends on. A resource kind without a question set
-exits 1, a spec that cannot be read exits 2.
+exits 1, a spec that cannot be read exits 2. A size or cost knob (`stage_parameter`) is tagged
+`[stage file]` with one value, and not when the spec records it as forced.
 
 Usage:
     python3 run_render_digest_tests.py
@@ -71,12 +75,31 @@ def main():
     expect('renders: public_network_access_enabled = false' in out, 'render-map.yaml values not applied (terraform_avm)')
     expect('renders: account_sku_name = "Standard_LRS" (development), "Standard_ZRS" (production)' in out,
            'render-map.yaml format not applied per stage')
-    expect('renders: min_tls_version = "TLS1_2"' in out, 'a passed-through answer not quoted for Terraform')
+    expect('renders: min_tls_version = "TLS1_2"' in out, 'a values literal not quoted for Terraform')
     expect('[per stage]' in out, 'stage map not tagged')
     expect('storage-account.data_protection.blob_soft_delete_days = 14' in out.split('-- assumed')[1],
            'assumed value not listed')
     expect('context.subscription_id  [production]' in out, 'open entry not listed')
     expect('role: Key Vault Crypto Service Encryption User' in out, 'wiring not listed')
+    # A role entry carries what the render needs beyond its three fields.
+    roles = out.split('-- wiring')[-1].split('-- assumed')[0]
+    expect('target: key-vault  module=security  implementation=authored' in roles,
+           'a role on an authored target does not say so')
+    expect('target: storage-account  module=storage  implementation=avm  avm: Azure/avm-res-storage-storageaccount/azurerm' in roles,
+           "a role on an AVM target does not name the target's module")
+    expect('role: Azure RBAC, by name' in roles, "a role's model is not printed")
+    expect('principal: system-assigned identity of storage-account' in roles,
+           'the principal of a resource of the spec is not traced to its module')
+    expect('principal: outside the spec (entra_group, principal_type Group) - an id parameter from the stage file: '
+           'development=22222222-3333-4444-5555-666666666601; open for production: 00000000-0000-0000-0000-000000000000' in roles,
+           'a principal outside the spec is not traced to the stage file and its open stage')
+    model, principal, role_gaps = d.describe_role(
+        {'from': 'user-assigned-identity__web', 'to': 'cosmos-db', 'role': 'Cosmos DB Built-in Data Reader'},
+        {'user-assigned-identity__web': {}, 'cosmos-db': {}}, {'Cosmos DB Built-in Data Reader'}, ['production'])
+    expect('data plane' in model and 'user-assigned identity user-assigned-identity__web' in principal and not role_gaps,
+           'a Cosmos DB data role or a user-assigned identity is not told apart')
+    _, _, role_gaps = d.describe_role({'from': 'sg-readers', 'to': 'gone', 'role': 'Reader'}, {}, set(), ['production'])
+    expect(len(role_gaps) == 2, 'a role between things the spec does not hold is no gap')
 
     reads = out.split('-- read')[1].split('\n\n')[0]
     expect('terraform-idiom.md' in reads and 'bicep-idiom.md' not in reads, 'idiom of the wrong target in the reading list')
@@ -86,6 +109,7 @@ def main():
     gh_line = next(l for l in reads.splitlines() if 'pipelines.github.md' in l)
     expect(f"-{gh_bicep - 1}" in gh_line, "pipelines.github.md: the Bicep stage workflow is not left out for Terraform")
     expect('private-dns-zones.md' not in reads, 'private-dns-zones.md read though the platform owns the zones')
+    expect('role-assignments.md' in reads, 'role-assignments.md not read though the spec assigns roles')
     expect('resource-groups.md' not in reads, 'resource-groups.md read under a single layout')
 
     naming = os.path.join(d.REFS, 'naming.md')
@@ -107,6 +131,8 @@ def main():
     r = run(FIXTURE, '--target', 'bicep')
     expect('bicep-idiom.md' in r.stdout and 'terraform-idiom.md' not in r.stdout, '--target bicep did not switch the idiom')
     expect("renders: publicNetworkAccess = 'Disabled'" in r.stdout, '--target bicep did not use the bicep_avm entry')
+    expect('target: storage-account  module=' in r.stdout and 'avm: avm/res/storage/storage-account' in r.stdout,
+           "--target bicep did not name the Bicep module of a role's target")
     expect("renders: skuName = 'Standard_LRS' (development), 'Standard_ZRS' (production)" in r.stdout,
            '--target bicep did not quote the literal for Bicep')
 
@@ -168,6 +194,18 @@ def main():
             yaml.safe_dump({**spec, 'resources': {'no-such-kind': {'g': {'q': {'value': 1, 'source': 'default'}}}}}, f)
         expect(run(bad).returncode == 1, 'a resource without a question set did not exit 1')
         expect(run(os.path.join(tmp, 'missing.yaml')).returncode == 2, 'a missing spec did not exit 2')
+
+        # A size or cost knob (stage_parameter) is a stage-file parameter with one value too;
+        # recorded as forced, it stays in the template.
+        knob = os.path.join(tmp, 'knob.yaml')
+        for source, tagged in (('default', True), ({'forced_by': 'deployment.key_protection'}, False)):
+            kv = {**spec['resources']['key-vault']}
+            kv['vault'] = {**kv['vault'], 'sku': {'value': 'standard', 'source': source}}
+            with open(knob, 'w', encoding='utf-8') as f:
+                yaml.safe_dump({**spec, 'resources': {**spec['resources'], 'key-vault': kv}}, f)
+            line = next((l for l in run(knob).stdout.splitlines() if 'key-vault.vault.sku = ' in l), '')
+            expect(('[stage file]' in line) == tagged,
+                   f"key-vault.vault.sku with source {source!r} {'not ' if tagged else ''}tagged [stage file]: {line!r}")
     finally:
         shutil.rmtree(tmp)
 

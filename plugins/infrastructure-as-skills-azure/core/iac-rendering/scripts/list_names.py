@@ -20,10 +20,13 @@ from pathlib import Path
 try:
     import yaml
 except ImportError:
-    sys.exit("PyYAML is required: pip install pyyaml")
+    print("PyYAML is required: pip install pyyaml")
+    sys.exit(2)
 
 HERE = Path(__file__).resolve().parent
 PLUGIN = HERE.parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'lib'))
+import plugin_lib  # noqa: E402 - the paths and the set lookup every script shares
 DEFAULT_NAMING = HERE.parent / "references" / "naming.default.yaml"
 
 # type id -> (min, max, charset regex of the whole name, must start with a letter, global)
@@ -98,8 +101,8 @@ def per_stage(node, stage):
 
 
 def find_set(name):
-    hits = sorted((PLUGIN / "resources").glob(f"*/{name}/questions.yaml"))
-    return load_yaml(hits[0]) if hits else None
+    path = plugin_lib.set_path(name)
+    return load_yaml(Path(path)) if path else None
 
 
 TOKEN = re.compile(r"<(\?)?([A-Z_]+?)(?:_(\d+))?(?:;([^>]*))?>")
@@ -219,14 +222,21 @@ def main():
                 continue
             type_id = terraform_id.removeprefix("Azure::").split("::")[0]
             abbr = naming.get("abbreviation") or abbreviations.get(f"{type_id}::default", "")
-            # An instance joins the workload in <NAME>; <SUBNAME> is for sub-resources.
+            # An instance joins the workload in <NAME>; <PURPOSE> is for sub-resources and roles.
             add(key, type_id, abbr, {"NAME": workload + instance} if instance else {}, t["create"])
-            # Subnets are named by the spec, verbatim.
+            # Subnets from the convention, the spec's short name as <PURPOSE> - the private
+            # endpoint subnet's is `endpoints`; an existing subnet's azure_name stands verbatim.
             if set_name == "virtual-network":
-                subnets = per_stage(spec["resources"][key].get("addressing", {}).get("subnets"), stage) or []
+                addressing = spec["resources"][key].get("addressing", {})
+                subnets = list(per_stage(addressing.get("subnets"), stage) or [])
+                if per_stage(addressing.get("private_endpoint_subnet_prefix"), stage):
+                    subnets.append({"name": "endpoints"})
+                subnet_type = "Microsoft.Network/virtualNetworks/subnets"
+                subnet_abbr = abbreviations.get(f"{subnet_type}::default", "snet")
                 for sn in subnets:
                     if isinstance(sn, dict) and sn.get("name"):
-                        add(f"  subnet", "Microsoft.Network/virtualNetworks/subnets", "snet", {}, t["create"], fixed=sn["name"])
+                        add(f"  subnet {sn['name']}", subnet_type, subnet_abbr, {"PURPOSE": str(sn["name"])},
+                            t["create"], fixed=sn.get("azure_name"))
 
         # Two resources of one scope with one name: the pattern lacks what tells them apart.
         seen = {}

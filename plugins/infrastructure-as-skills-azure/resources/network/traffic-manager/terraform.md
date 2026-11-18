@@ -85,7 +85,7 @@ module "traffic_manager" {
   external_endpoints = {}
   nested_endpoints   = {}
 
-  # decision: traffic-manager.access.role_assignments
+  # decision: wiring.role_assignments
   role_assignments = {}
 
   diagnostic_settings = {
@@ -141,7 +141,7 @@ run "naming" {
 # not-testable: traffic-manager.monitoring.expected_status_codes - as above
 # not-testable: traffic-manager.monitoring.probe_profile - as above
 # not-testable: traffic-manager.endpoints.endpoints - child modules; their count is in the plan JSON
-# not-testable: traffic-manager.access.role_assignments - inside the module
+# not-testable: wiring.role_assignments - inside the module
 # not-testable: traffic-manager.observability.diagnostic_workspace - the diagnostic setting is inside the module
 # not-testable: traffic-manager.observability.diagnostic_categories - as above
 # not-testable: traffic-manager.observability.metrics_enabled - as above

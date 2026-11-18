@@ -15,6 +15,16 @@ share's storage account), the backup policy, the protected item, then the alerts
 Guard exists before the vault is associated, in another subscription. The workspace before the
 diagnostic setting.
 
+## Roles
+
+A role on the vault is a `wiring.role_assignments` entry with it as `to`. Access is granted
+by role, never by key. The narrow roles are `Backup Reader` to see jobs and items, `Backup
+Operator` to run and restore, and `Backup Contributor` to manage policies; `Owner` and
+`Contributor` can also delete the vault and are not for a workload. Never the subscription.
+
+The vault's own identity needs a role on each protected resource: an entry with the vault as
+`from` and the protected resource as `to`.
+
 ## Pitfalls
 
 **Which vault.** The Recovery Services vault protects virtual machines, Azure Files shares and

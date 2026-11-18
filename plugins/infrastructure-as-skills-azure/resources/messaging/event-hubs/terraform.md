@@ -124,7 +124,7 @@ namespace is an `azapi_resource`, so asserts target its `body.sku`, `body.proper
 and `publicNetworkAccess`, and each event hub's `body.properties.partitionCount` and
 `messageRetentionInDays` - exact paths are read off a first `terraform test` on the pinned
 version. The endpoint, role assignments and diagnostic setting are built by the module and
-marked `# not-testable:` with a reason, as are `minimum_tls_version`, `zone_redundant` and
+marked `# not-testable:` with a reason, as are `min_tls_version`, `zone_redundant` and
 `infrastructure_encryption`, which the module has no input for.
 
 ## Authored rendering

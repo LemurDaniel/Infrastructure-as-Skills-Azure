@@ -273,21 +273,6 @@ decisions:
     terraform: { attribute: identity.identity_ids, note: 'a set of ids (source: azurerm 5.12 schema)' }
     bicep_avm: { module: avm/res/web/site, attribute: managedIdentities.userAssignedResourceIds }
     bicep: { attribute: identity.userAssignedIdentities, note: 'a map keyed by the identity id, each value {} (source: bicep build, Microsoft.Web/sites@2024-04-01)' }
-  identity.role_assignments:
-    terraform_avm:
-      module: Azure/avm-res-web-site/azurerm
-      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
-      note: the avm.md interface - the reference table has no row
-    terraform:
-      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
-      note: 'one per entry, scope = the app''s id (source: azurerm 5.12 schema)'
-    bicep_avm:
-      module: avm/res/web/site
-      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
-      note: the avm.md interface - the reference table has no row
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
-      note: 'one per entry, scope the app; roleDefinitionId is the role''s id, not its name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
 
   # ----------------------------------------------------------------- security
   security.https_only:

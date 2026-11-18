@@ -20,6 +20,17 @@ the classic tiers**, minutes on the v2 tiers - then the APIs, the policy, the ro
 the instance's identity on the backends, then the consumers. The workspace before the diagnostic
 setting.
 
+## Roles
+
+A role on the instance is a `wiring.role_assignments` entry with it as `to`. Access is
+granted by role, never by key. The narrow roles are `API Management Service Reader Role` for
+read access to the configuration and `API Management Service Contributor` for the API team;
+`API Management Service Operator Role` runs the instance without editing APIs. Never the
+subscription.
+
+The instance's own roles on its backends and on Key Vault are entries with the instance as
+`from`.
+
 ## Pitfalls
 
 **The modules disagree on the tier and its size.** Terraform defaults to `Developer_1`, Bicep to

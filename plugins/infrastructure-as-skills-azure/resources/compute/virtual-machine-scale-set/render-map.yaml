@@ -219,11 +219,6 @@ decisions:
       attribute: identity.userAssignedIdentities
       format: { expr: 'toObject({value}, id => id, id => {})' }
       note: 'an object keyed by each id, with type UserAssigned (source: bicep build, Microsoft.Compute/virtualMachineScaleSets@2024-11-01)'
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform: { attribute: azurerm_role_assignment, note: scope = the set's id }
-    bicep_avm: { attribute: roleAssignments }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the set }
 
   # ----------------------------------------------------------------- security
   security.trusted_launch:

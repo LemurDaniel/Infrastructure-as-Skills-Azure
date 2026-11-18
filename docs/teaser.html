@@ -243,14 +243,14 @@ pre.code .ln { display: block; }
         <div class="render">
 <pre class="code"><span class="ln" data-at="25.2"><span class="k">resource</span> <span class="s">"azurerm_storage_account"</span> <span class="s">"this"</span> {</span><span class="ln" data-at="25.4"><span class="c">  # decision: storage-account.data_protection.replication</span>
   account_replication_type = <span class="s">"LRS"</span></span><span class="ln" data-at="25.6"><span class="c">  # decision: storage-account.security.min_tls_version</span>
-  min_tls_version = <span class="s">"TLS1_2"</span></span><span class="ln" data-at="25.8"><span class="c">  # decision: storage-account.security.shared_access_key_enabled</span>
+  min_tls_version = <span class="s">"TLS1_2"</span></span><span class="ln" data-at="25.8"><span class="c">  # decision: storage-account.security.local_auth</span>
   shared_access_key_enabled = <span class="k">false</span></span><span class="ln" data-at="26.0"><span class="c">  # decision: storage-account.security.infrastructure_encryption_enabled</span>
   infrastructure_encryption_enabled = <span class="k">true</span></span><span class="ln" data-at="26.2"><span class="c">  # decision: storage-account.identity.managed_identity</span>
   identity { type = <span class="s">"SystemAssigned"</span> }
 }</span></pre>
           <div class="tests">
             <div class="t" data-at="26.4">storage-account.security.min_tls_version</div>
-            <div class="t" data-at="26.6">storage-account.security.shared_access_key_enabled</div>
+            <div class="t" data-at="26.6">storage-account.security.local_auth</div>
             <div class="t" data-at="26.8">storage-account.data_protection.versioning_enabled</div>
             <div class="t" data-at="27.0">key-vault.vault.soft_delete_retention_days</div>
             <div class="t" data-at="27.2">app-service.hosting.sku</div>
@@ -297,9 +297,9 @@ pre.code .ln { display: block; }
     "change_feed","blob_soft_delete","container_soft_delete","point_in_time_restore","immutability","private_endpoint",
     "private_dns_zone","subnet","network_bypass","default_action","diagnostics","log_categories","retention_days","account_kind",
     "hns_enabled","nfsv3","large_file_shares","cross_tenant_replication","default_to_oauth","dns_endpoint_type",
-    "routing_preference","last_access_tracking","lifecycle_policy","cors","static_website","role_assignments","cmk_identity","queue_logging"];
+    "routing_preference","last_access_tracking","lifecycle_policy","cors","static_website","firewall_ip_rules","cmk_identity","queue_logging"];
   const WRONG = new Set([0,2,3,6,9,11,13,17,22,29,33]);
-  const DEFAULTS = [["min_tls_version","TLS1_2"],["shared_access_key","disabled"],["blob_public_access","off"],
+  const DEFAULTS = [["min_tls_version","1.2"],["shared_access_key","disabled"],["blob_public_access","off"],
     ["https_traffic_only","on"],["infrastructure_encryption","on"],["versioning","on"],["local_auth","disabled"],
     ["managed_identity","SystemAssigned"],["diagnostics","→ Log Analytics"],["blob_soft_delete","7 days"],
     ["purge_protection","sandbox: off"],["ftps_state","Disabled"],["http2","on"],["app_service.sku","B1"],

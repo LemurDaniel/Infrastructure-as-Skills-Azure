@@ -68,12 +68,12 @@ module sqlmi 'br/public:avm/res/sql/managed-instance:0.5.1' = {
     publicDataEndpointEnabled: false
     // decision: sql-managed-instance.networking.connection_type - the module default is Proxy
     proxyOverride: 'Redirect'
-    // decision: sql-managed-instance.networking.minimum_tls_version
+    // decision: sql-managed-instance.networking.min_tls_version
     minimalTlsVersion: '1.2'
 
     // decision: sql-managed-instance.identity.managed_identity
     managedIdentities: { systemAssigned: true }
-    // decision: sql-managed-instance.identity.entra_admin / security.local_authentication_disabled
+    // decision: sql-managed-instance.identity.entra_admin / security.local_auth
     // Entra-only: no administratorLogin, no password
     administrators: {
       azureADOnlyAuthentication: true
@@ -110,7 +110,7 @@ module sqlmi 'br/public:avm/res/sql/managed-instance:0.5.1' = {
       }
     ]
 
-    // decision: sql-managed-instance.identity.role_assignments
+    // decision: wiring.role_assignments
     roleAssignments: roleAssignments
     enableTelemetry: true
   }

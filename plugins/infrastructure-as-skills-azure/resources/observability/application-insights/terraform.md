@@ -54,7 +54,7 @@ module "insights" {
     scope = { resource_id = var.monitor_private_link_scope_id }
   }
 
-  # decision: application-insights.security.local_authentication_disabled - module default false
+  # decision: application-insights.security.local_auth - module default false
   local_authentication_disabled = true
 
   retention_in_days = var.workspace_retention_days # follows the workspace

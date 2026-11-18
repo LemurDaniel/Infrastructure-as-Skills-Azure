@@ -51,8 +51,3 @@ decisions:
       note: only "Regional" or unset (None is null); the argument exists only where the provider has it - check terraform providers schema -json
     bicep_avm: { attribute: isolationScope, passthrough: true, note: both values valid; written }
     bicep: { attribute: properties.isolationScope, passthrough: true }
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform: { attribute: azurerm_role_assignment, note: scoped to the identity's id }
-    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the identity }

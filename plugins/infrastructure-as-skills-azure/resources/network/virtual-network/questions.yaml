@@ -102,6 +102,13 @@ groups:
           smallest range that comfortably carries private endpoints. Growing a
           subnet later is only possible into free space adjacent to it, which is
           why leaving gaps is worth more than packing them tightly.
+          Each entry is `{ name, prefix }`, and **the name is the subnet's short purpose** -
+          `app`, `aca`, `gateway`, lower case, no `snet-` - never its Azure name: the render
+          builds every subnet's name from the naming convention with it as `<PURPOSE>`
+          (`snet-we-prod-shop-app-01`), the private endpoint subnet's as `endpoints`, so no
+          subnet is named by hand beside one named by the convention. A subnet that already
+          exists under another name (an adopted or a deployed network) carries `azure_name`,
+          which the render takes verbatim, since a renamed subnet is a new one.
 
       - id: private_endpoint_subnet_prefix
         ask:

@@ -34,7 +34,7 @@ resources:
     security:
       min_tls_version:
         source: default
-        value: TLS1_2
+        value: "1.2"
     networking:
       private_endpoint_subnet:
         value: &subnets
@@ -154,7 +154,7 @@ def main():
                         present == sorted(present, key=storage_groups.index), present))
 
     results.append(case("a short decision in block style, one field per line",
-                        "      min_tls_version:\n        value: TLS1_2\n        source: default\n" in new, new))
+                        "      min_tls_version:\n        value: '1.2'\n        source: default\n" in new, new))
     results.append(case("no map on one line", not re.search(r":\s*\{", new), new))
     results.append(case("a stage map in the order of context.environments, one stage per line",
                         "          development: snet-pe\n          production: snet-pe\n" in new, new))

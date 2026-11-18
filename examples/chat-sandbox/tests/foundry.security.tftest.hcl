@@ -44,7 +44,7 @@ variables {
 run "security" {
   command = plan
 
-  # decision: foundry.security.local_authentication_disabled
+  # decision: foundry.security.local_auth
   assert {
     condition     = azurerm_cognitive_account.this.local_auth_enabled == false
     error_message = "Account keys off (inverse argument); callers hold a role and a token."

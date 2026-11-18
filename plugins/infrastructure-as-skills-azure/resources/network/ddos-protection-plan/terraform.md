@@ -46,7 +46,7 @@ module "ddos_protection_plan" {
   location            = var.location
   resource_group_name = var.resource_group_name
 
-  # decision: ddos-protection-plan.access.role_assignments
+  # decision: wiring.role_assignments
   role_assignments = {}
   lock             = null
 
@@ -102,7 +102,7 @@ run "plan" {
 # not-testable: ddos-protection-plan.plan.ownership - decides whether the module or the id variable is rendered, which the root's wiring test sees
 # not-testable: ddos-protection-plan.plan.existing_plan - an id variable under platform; the variable's validation checks its type
 # not-testable: ddos-protection-plan.plan.stages_with_plan - the module's count per stage file; the non-production run asserts count 0
-# not-testable: ddos-protection-plan.access.role_assignments - inside the module
+# not-testable: wiring.role_assignments - inside the module
 ```
 
 ## Authored rendering

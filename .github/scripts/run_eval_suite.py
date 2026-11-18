@@ -10,7 +10,7 @@ result is an error, and a suite without any result fails.
 Requires: the Claude Code CLI (claude) on PATH and ANTHROPIC_API_KEY set; run from anywhere.
 
 Usage:
-    python3 .github/scripts/run_eval_suite.py --output-dir <dir> --model sonnet --max-cost-usd 30
+    python3 .github/scripts/run_eval_suite.py --output-dir <dir> --model sonnet --max-cost-usd 40
     python3 .github/scripts/run_eval_suite.py --output-dir ./eval --model haiku --max-cost-usd 5 \\
         --runs 2 --tag terraform
 

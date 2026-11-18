@@ -119,6 +119,28 @@ The members of `containers`, `scaleSettings`, `registries` and `secrets`, and th
 names, are read from the README of the pinned version. The roles on the registry and the vault
 are granted before either module is deployed, outside these calls.
 
+### Several apps in one environment
+
+With `hosting_environment: shared` the instance has **no environment module** and none of
+`workload_profile`, `zone_redundant`, `internal`, `infrastructure_subnet`,
+`public_network_access`, `peer_traffic_encryption` or the diagnostic decisions: they are the
+owner's. Its app takes the owner's environment id:
+
+```bicep
+module appWorker 'br/public:avm/res/app/container-app:0.23.0' = {
+  name: 'container-app-worker'
+  params: {
+    // decision: container-apps__worker.environment.hosting_environment - shared with container-apps__api
+    environmentResourceId: environment.outputs.resourceId
+    workloadProfileName: 'Consumption' // the owner's workload_profile
+    // ... the app's own decisions, as above: containers, scaleSettings, ingress, identity, registries, secrets
+  }
+}
+```
+
+One environment, one infrastructure subnet and one diagnostic setting, whatever the number of
+apps; the subnet is sized for the replicas of all of them.
+
 ### Tests
 
 A module call compiles to a nested deployment whose `properties.parameters.<param>.value` is

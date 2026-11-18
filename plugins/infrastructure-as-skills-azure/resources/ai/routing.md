@@ -31,9 +31,9 @@ guessable - which model, how big a search service - and those are the engineer's
 `open:` entries when nobody can answer. A customer is asked nothing new.
 
 **Keyless means every caller has a role, and the roles are the narrow ones.** An application
-calling a model, a search service and a data store holds a role on each; with keys off an
-empty role list is a working resource nobody can use. A pattern grants them from the
-consumers it knows.
+calling a model, a search service and a data store holds a role on each - one
+`wiring.role_assignments` entry per call, with the service as `to`. With keys off, a service
+without a role for its caller is a working resource nobody can use.
 
 **The connections between the resources are the pattern's.** A Foundry project reaching a
 search service, a search indexer reaching a storage account over a shared private link, a

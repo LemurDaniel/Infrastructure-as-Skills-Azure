@@ -21,7 +21,7 @@ boundaries:
   - "Does not install software, join a domain, run DSC or custom scripts, or configure the guest. The only extension it renders is the Entra login one."
   - "Does not create the maintenance configuration (the scheduled patch window); the `maintenance-configuration` set owns it, and this set assigns the machine to it."
   - "Does not create dedicated hosts, capacity reservations, Spot or hibernation settings."
-  - "Does not grant other resources a role for the machine's identity (Key Vault secrets, storage data). `role_assignments` records who may log in to this machine; a role the machine's identity needs elsewhere is wiring, owned by a pattern."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Standalone data disks are the `managed-disk` set; this set lists the data disks the machine carries and renders them through the module."
   - "Scale sets (`virtual-machine-scale-set`) and availability sets with their proximity placement group (`availability-set`) are their own sets; this machine only references an availability set."
 
@@ -149,6 +149,7 @@ groups:
           en: "Which machine size?"
           de: "Welche Maschinengröße?"
         type: string
+        stage_parameter: true
         plain:
           en: "The machine size is {value}."
           de: "Die Maschinengröße ist {value}."
@@ -186,6 +187,7 @@ groups:
           en: "How many identical machines of this kind?"
           de: "Wie viele gleiche Maschinen dieser Art?"
         type: int
+        stage_parameter: true
         plain:
           en: "Identical machines of this kind: {value}."
           de: "Gleiche Maschinen dieser Art: {value}."
@@ -289,6 +291,7 @@ groups:
           en: "How large should the system disk be, in GiB?"
           de: "Wie groß soll die System-Disk sein, in GiB?"
         type: int
+        stage_parameter: true
         plain:
           en: "The system disk is {value} GiB."
           de: "Die Systemplatte ist {value} GiB groß."
@@ -462,24 +465,6 @@ groups:
           `AADLoginForWindows`) maps the sign-in to a role on the machine, so who may log in is
           a role assignment, not a user on the disk. It needs the system-assigned identity and
           the role `Virtual Machine Administrator Login` or `Virtual Machine User Login`.
-
-      - id: role_assignments
-        ask:
-          en: "Who may sign in to this machine, and as administrator or as user?"
-          de: "Wer darf sich an dieser Maschine anmelden, und als Administrator oder als Benutzer?"
-        type: list
-        plain:
-          en: "Sign-in rights on the machine granted to: {value}."
-          de: "Anmelderechte auf die Maschine vergeben an: {value}."
-        default: []
-        per_environment: true
-        depends_on: { question: entra_login, equals: true }
-        why: >
-          With Entra sign-in on, nobody can log in until a role is assigned: `Virtual Machine
-          Administrator Login` for the people who administer, `Virtual Machine User Login` for
-          the rest, scoped to the machine and given to groups, never to a person. An empty list
-          is a working machine nobody can enter, and not an answer: with no one named it is an
-          `open:` entry owned by the workload owner, blocking apply.
 
   # ----------------------------------------------------------------- security
   - id: security

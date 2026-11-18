@@ -20,6 +20,7 @@ boundaries:
   - "Does not create Traffic Manager profiles, Front Door endpoints or certificates. An alias record may point at one of them; the target is another set's."
   - "Does not render a diagnostic setting: the zone type has no resource logs and the modules expose no diagnostics interface for it. Its query metrics are platform metrics, visible without a setting."
   - "Carries the `deployment.resource_lock` lock: a recreated zone gets a different name-server set, and every delegation and DS record pointing at the old one is broken until the registrar is updated."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -195,29 +196,6 @@ groups:
           being served from caches. A record that is about to move is lowered to 60 seconds a
           day before and raised again after; that is an edit of the entry, not of this default.
           An alias record ignores it for the target's health, not for caching.
-
-  # ------------------------------------------------------------------- access
-  - id: access
-    title: Access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs to write records in the zone?"
-          de: "Wer muss Einträge in die Zone schreiben?"
-        type: list
-        plain:
-          en: "Record-writing rights on the zone granted to: {value}."
-          de: "Schreibrechte auf die Zone vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          The identities that write records at run time: a certificate issuer solving ACME
-          DNS-01 challenges (cert-manager, an App Service managed certificate does not need it),
-          a pipeline that flips a CNAME on release, a mail provider's connector. The role is
-          `DNS Zone Contributor` on the zone, never Contributor on the group and never the
-          subscription. Empty by default: the records a render writes are written by the
-          deploying identity, which already has them. A pattern normally fills this from the
-          consumers it knows about.
 
   # ----------------------------------------------------------------- security
   - id: security

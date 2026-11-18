@@ -50,7 +50,7 @@ run "identity" {
     error_message = "System-assigned identity."
   }
 
-  # decision: foundry.identity.role_assignments
+  # decision: wiring.role_assignments
   assert {
     condition     = length([for k in keys(azurerm_role_assignment.this) : k if startswith(k, "foundry/")]) == 2 && azurerm_role_assignment.this["foundry/app-service/Cognitive Services OpenAI User"].role_definition_name == "Cognitive Services OpenAI User" && azurerm_role_assignment.this["foundry/search-service/Cognitive Services OpenAI User"].role_definition_name == "Cognitive Services OpenAI User"
     error_message = "The app and the search service hold Cognitive Services OpenAI User on the account, and nothing else."

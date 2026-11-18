@@ -145,26 +145,20 @@ decisions:
       attribute: database.accessPolicyAssignments
       note: "one object per principal - { userObjectId: <principal>, accessPolicyName: 'default' }"
     bicep: { attribute: child databases/accessPolicyAssignments properties.user.objectId, note: "one per principal; accessPolicyName beside it (source: bicep build, Microsoft.Cache/redisEnterprise/databases/accessPolicyAssignments@2025-07-01)" }
-  identity.role_assignments:
-    terraform_avm: { attribute: role_assignments, note: control plane }
-    terraform: { attribute: azurerm_role_assignment, note: "scope = the instance id; control plane (source: azurerm 5.12 schema)" }
-    bicep_avm: { attribute: roleAssignments, note: control plane }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the cluster; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
 
   # ----------------------------------------------------------------- security
-  security.access_keys_authentication_disabled:
+  security.local_auth:
     terraform_avm:
-      gap: module README v0.2.0 has no input for access keys authentication - azapi_update_resource on module.redis.database_id setting properties.accessKeysAuthentication ("Disabled" for true)
+      gap: module README v0.2.0 has no input for access keys authentication - azapi_update_resource on module.redis.database_id setting properties.accessKeysAuthentication ("Disabled" for disabled)
     terraform:
       attribute: default_database.access_keys_authentication_enabled
-      values: { true: false, false: true }
-      note: inverse
+      values: { disabled: false, enabled: true }
     bicep_avm:
       attribute: database.accessKeysAuthentication
-      values: { true: Disabled, false: Enabled }
+      values: { disabled: Disabled, enabled: Enabled }
     bicep:
       attribute: database properties.accessKeysAuthentication
-      values: { true: Disabled, false: Enabled }
+      values: { disabled: Disabled, enabled: Enabled }
   security.encrypted_connections_only:
     terraform_avm:
       attribute: enable_non_ssl_port

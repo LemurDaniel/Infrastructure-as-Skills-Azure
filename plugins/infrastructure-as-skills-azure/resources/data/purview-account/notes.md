@@ -24,6 +24,15 @@ account's data plane, then the sources register with it (a Data Factory's `purvi
 scan of a lake). A closed ingestion path (`managed_resources_public_access: disabled`) also needs
 a self-hosted integration runtime before the first scan.
 
+## Roles
+
+A role on the account is a `wiring.role_assignments` entry with it as `to`. It is Azure RBAC
+on the account - the control plane: networking, the managed resources, diagnostics, deleting
+the account - and separate from the collection roles on purpose. `Reader` on the account is
+also what a user needs before the portal lets them sign in to it. Usually the deploying
+principal's plus the governance team's (`from: { existing: entra_group }`). An account the
+platform owns (`ownership: platform`) takes no entry: its roles are the platform's.
+
 ## Pitfalls
 
 **One account per tenant.** A second account splits lineage and doubles a fixed cost that is

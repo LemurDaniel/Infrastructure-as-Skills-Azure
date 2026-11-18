@@ -19,6 +19,18 @@ serialises them by default, because parallel creation returns `409 Conflict`), t
 projects, then the role assignments, then the connections from the projects to storage, search
 and Cosmos DB - which are the pattern's wiring. The workspace before the diagnostic setting.
 
+## Roles
+
+A role on the account is a `wiring.role_assignments` entry with it as `to`. With keys off,
+nothing calls a model until one exists, so an account without a role for its caller works
+and is of no use to anyone. A consumer nobody has named is an `open:` entry (key
+`wiring.role_assignments`) owned by the workload owner, blocking apply.
+
+The roles are the narrow ones - `Cognitive Services OpenAI User` for an application that
+only calls models, `Azure AI User` for one that also uses projects and agents. `Cognitive
+Services Contributor` or an owner role is a departure that names a person. A role that can
+*list keys* has no business in a keyless account.
+
 ## Pitfalls
 
 **Quota is the failure, and it is not in the template.** A model deployment counts against a

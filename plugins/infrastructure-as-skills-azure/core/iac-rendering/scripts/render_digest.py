@@ -14,13 +14,17 @@ This digest reads the spec and prints:
      computed from the current files, so a moved heading never sends a run to the wrong line.
   3. Every deployment and context value with its source.
   4. Per resource: the AVM modules and the naming identifier, and every decision as
-     `<resource>.<group>.<question>` - the key a test asserts - with its value, its source and
+     `<resource>.<group>.<question>` - the key a test asserts - with its value, its source
+     (`[per stage]` for a stage map, `[stage file]` for a size or cost knob that is a parameter
+     from the stage files even where the stages agree) and
      what its render-map.yaml entry says for the target and implementation: the attribute with
      the literal the value becomes, further lines, the note or the gap. A line a resource
      sets on a part of another one (`on_part`: an NSG on a subnet) is printed under the part's
      resource, `-- on parts`: that resource's module renders it.
-  5. Wiring, target overrides, the `assumed` values (an `ASSUMED:` marker in every stage
-     file) and the `open:` entries (placeholders), then the checks with their paths.
+  5. Wiring - each role assignment with its target's key, implementation and AVM module, the
+     role's model and where the principal id comes from -, target overrides, the `assumed`
+     values (an `ASSUMED:` marker in every stage file) and the `open:` entries
+     (placeholders), then the checks with their paths.
 
 spec.md is not read for a render; the digest says what it holds for this spec. Look a key
 up there only when the digest does not explain it.
@@ -47,6 +51,10 @@ RESOURCES = os.path.join(PLUGIN, 'resources')
 REFS = os.path.join(CORE, 'iac-rendering', 'references')
 sys.path.insert(0, os.path.join(CORE, 'iac-authoring', 'scripts'))
 import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
+import spec_source  # noqa: E402 - what a decision's source says
+import pattern_lib  # noqa: E402 - the role names of built-in-roles.yaml
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'lib'))
+import plugin_lib  # noqa: E402 - the printer, the paths and the set lookup every script shares
 
 PIPELINE_FILES = {'github': 'github', 'azure_devops': 'ado', 'gitlab': 'gitlab', 'local': 'local'}
 AUTHORED_MARK = '## Authored rendering'
@@ -129,6 +137,41 @@ def value_of(node):
     return node.get('value') if isinstance(node, dict) and 'value' in node else node
 
 
+PRINCIPAL_TYPES = {'entra_group': 'Group', 'principal': 'ServicePrincipal'}
+
+
+def describe_role(entry, resources, data_plane, stages):
+    """What a render needs of one wiring.role_assignments entry beyond its three fields:
+    (the role's model, where the principal id comes from, the gaps). The target's module is the
+    caller's to add - it knows the composition."""
+    gaps = []
+    role, src, dst = entry.get('role'), entry.get('from'), entry.get('to')
+    if role in data_plane:
+        model = "the service's own role model (data plane) - not Microsoft.Authorization"
+    else:
+        model = 'Azure RBAC, by name'
+    if dst not in resources:
+        gaps.append(f"wiring.role_assignments: '{dst}' is not a resource of this spec - the role has no scope")
+    if isinstance(src, dict) and 'existing' in src:
+        kind = str(src['existing'])
+        ids = src.get('id') if isinstance(src.get('id'), dict) else {}
+        known = ', '.join(f"{s}={ids[s]}" for s in stages if s in ids)
+        missing = [s for s in stages if s not in ids]
+        principal = (f"outside the spec ({kind}, principal_type {PRINCIPAL_TYPES.get(kind, '?')}) - an id parameter from "
+                     f"the stage file" + (f": {known}" if known else '')
+                     + (f"; open for {', '.join(missing)}: 00000000-0000-0000-0000-000000000000" if missing else ''))
+    elif isinstance(src, str) and src in resources:
+        if src.split('__')[0] == pattern_lib.IDENTITY_KIND:
+            principal = f"user-assigned identity {src} - its module's principal id output, principal_type ServicePrincipal"
+        else:
+            principal = (f"system-assigned identity of {src} - its module's principal id output, "
+                         f"principal_type ServicePrincipal")
+    else:
+        principal = f"unknown - '{show(src)}' is neither a resource of this spec nor {{ existing: <kind> }}"
+        gaps.append(f"wiring.role_assignments: '{show(src)}' (from) is neither a resource of this spec nor an existing principal")
+    return model, principal, gaps
+
+
 def is_stage_map(v, stages):
     return isinstance(v, dict) and bool(v) and set(map(str, v)) <= set(stages)
 
@@ -196,13 +239,8 @@ def split_reference(path, implementation):
 
 
 def find_set(kind):
-    if not os.path.isdir(RESOURCES):
-        return None, None
-    for family in sorted(os.listdir(RESOURCES)):
-        p = os.path.join(RESOURCES, family, kind, 'questions.yaml')
-        if os.path.isfile(p):
-            return family, p
-    return None, None
+    path = plugin_lib.set_path(kind)
+    return (plugin_lib.family_of(kind), path) if path else (None, None)
 
 
 def literal(v, target):
@@ -355,6 +393,15 @@ def render_lines(entry, value, stages, target, ctx):
     return list(dict.fromkeys(lines))
 
 
+def is_stage_parameter(question, entry):
+    """A size or cost knob - `stage_parameter` or `non_production_default` on its question - is a
+    parameter whose value stands in every stage file, also with one stage or stages that agree;
+    a value the spec records as forced stays in the template, so no stage file can loosen it."""
+    if not question or not (question.get('stage_parameter') or 'non_production_default' in question):
+        return False
+    return spec_source.kind(entry.get('source'))[0] != 'forced'
+
+
 def resolve(node, ctx):
     """An entry key's node as a list of entries: a list as it is, `by_kind` narrowed to the
     resource's answer of the kind question, a single entry in a list of one. None when the
@@ -504,6 +551,8 @@ def main():
     wiring = spec.get('wiring') or {}
     if value_of(wiring.get('private_dns_zones')) or value_of(dep.get('private_dns_ownership')) == 'deployment':
         ref('private-dns-zones.md')
+    if value_of(wiring.get('role_assignments')):
+        ref('role-assignments.md')
     if len(families) > 1:
         p('  (agents.md only in Subagents mode - iac-rendering step 13)')
     ref('gitignore.md')
@@ -590,6 +639,8 @@ def main():
         for path, entry in own:
             parts = path.split('.')
             tag = '  [per stage]' if is_stage_map(entry.get('value'), stages) else ''
+            if not tag and qpath and len(parts) >= 3 and is_stage_parameter(index.get((parts[1], parts[2])), entry):
+                tag = '  [stage file]'
             p(f"   {path} = {show(entry.get('value'))}  ({source_text(entry.get('source'))}){tag}")
             if qpath and len(parts) >= 3:
                 q = index.get((parts[1], parts[2]))
@@ -644,6 +695,10 @@ def main():
         p()
 
     # ---- 5. wiring, overrides, assumed, open
+    try:
+        _, data_plane_roles = pattern_lib.load_roles(yaml)
+    except (OSError, yaml.YAMLError):
+        data_plane_roles = set()
     if wiring:
         p('-- wiring (the root, never a module: only it sees both ends)')
         for k, v in wiring.items():
@@ -652,6 +707,28 @@ def main():
                 items = v['value'] if isinstance(v['value'], list) else [v['value']]
                 for item in items:
                     p(f"    - {show(item)}")
+                    if k == 'role_assignments' and isinstance(item, dict):
+                        # what the entry does not say itself: how its target renders, which model
+                        # the role belongs to, where the principal id comes from
+                        to = item.get('to')
+                        if to in resources:
+                            kind, family, _ = kinds[to]
+                            impl = implementation(to)
+                            coords = []
+                            rmap_path = os.path.join(RESOURCES, family or '', kind, 'render-map.yaml')
+                            if impl == 'avm' and os.path.isfile(rmap_path):
+                                if rmap_path not in sets:
+                                    with open(rmap_path, encoding='utf-8') as f:
+                                        sets[rmap_path] = yaml.safe_load(f) or {}
+                                coords = (sets[rmap_path].get('modules') or {}).get(target) or []
+                            if impl == 'avm' and not coords:
+                                impl = 'authored'
+                            p(f"        target: {to}  module={(module_of.get(to) or {}).get('id', '-')}  implementation={impl}"
+                              + (f"  avm: {', '.join(coords)}" if coords else ''))
+                        model, principal, role_gaps = describe_role(item, resources, data_plane_roles, stages)
+                        p(f"        role: {model}")
+                        p(f"        principal: {principal}")
+                        gaps.extend(role_gaps)
             else:
                 p(f"  wiring.{k} = {show(v)}")
     if spec.get('_target_overrides'):

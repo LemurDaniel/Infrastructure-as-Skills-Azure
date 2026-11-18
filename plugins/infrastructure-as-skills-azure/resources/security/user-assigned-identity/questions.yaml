@@ -12,7 +12,7 @@ naming:
 boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
   - "Does not assign the identity to a resource - the consumer's set takes it (`managed_identity: user_assigned`, `user_assigned_identity_ids`)."
-  - "Does not grant the identity roles on the resources it will call. That is wiring between resources, owned by a pattern; `role_assignments` here is for roles granted *on the identity itself*, for example who may assign it."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not create Entra app registrations or service principals - directory objects, not ARM resources (`azuread`, Graph). An identity that must be an application is an `open:` entry owned by the identity team."
   - "Has no diagnostic settings: the resource type emits no logs of its own."
 
@@ -124,19 +124,3 @@ groups:
           assigned, for a mandate on data residency. Without one it only gets in the way
           of a failover to a second region, where the same identity must be assignable.
           The Terraform module accepts only `Regional` or null, so `None` renders as unset.
-
-      - id: role_assignments
-        ask:
-          en: "Who may manage or assign this identity?"
-          de: "Wer darf diese Identität verwalten oder zuweisen?"
-        type: list
-        plain:
-          en: "Rights on the identity itself granted to: {value}."
-          de: "Rechte an der Identität selbst vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Roles granted *on* the identity - `Managed Identity Operator` is the one that lets
-          a principal assign it to a resource it creates, which a pipeline deploying the
-          consumer needs. Empty is a valid answer when the deploying principal owns the
-          resource group. The identity's roles *on other resources* are the pattern's.

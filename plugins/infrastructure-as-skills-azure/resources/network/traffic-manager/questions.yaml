@@ -18,6 +18,7 @@ boundaries:
   - "Does not create the customer's DNS record. The CNAME (or apex alias) from `www.example.com` to the profile is the `public-dns-zone` set's, in `wiring.dns_records`."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not carry a resource lock: a profile is rebuilt from the spec in minutes and `deployment.resource_lock` does not list it. The relative DNS name is kept for recreation only if nobody else claims it in between; the handover says so."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -326,26 +327,6 @@ groups:
           for Geographic. Nothing sensible can be guessed - a profile without endpoints answers
           nothing - and the targets differ per stage. A pattern that deploys the application to
           two regions fills this list from its own outputs.
-
-  # ------------------------------------------------------------------- access
-  - id: access
-    title: Access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs to operate the profile?"
-          de: "Wer muss das Profil betreiben?"
-        type: list
-        plain:
-          en: "Operating rights on the profile granted to: {value}."
-          de: "Betriebsrechte auf das Profil vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          The identity that disables an endpoint during a planned failover or a release - a
-          pipeline, an operations group - holds `Traffic Manager Contributor` on the profile,
-          never Contributor on the group. Empty by default: a render changes the profile with
-          the deploying identity. A pattern fills it from the consumers it knows about.
 
   # ------------------------------------------------------------ observability
   - id: observability

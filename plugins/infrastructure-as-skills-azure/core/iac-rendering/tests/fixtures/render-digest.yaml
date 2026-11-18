@@ -77,7 +77,7 @@ resources:
         source: deployment
     security:
       min_tls_version:
-        value: TLS1_2
+        value: "1.2"
         source: default
     data_protection:
       replication:
@@ -101,11 +101,22 @@ wiring:
     - from: storage-account
       to: key-vault
       role: Key Vault Crypto Service Encryption User
-    source: default
+    - from:
+        existing: entra_group
+        id:
+          development: 22222222-3333-4444-5555-666666666601
+      to: storage-account
+      role: Storage Blob Data Reader
+    source: stated
 
 open:
 - key: context.subscription_id
   environments: [production]
   question: Welche Subscription bekommt die Produktion?
   owner: Plattform-Team
+  blocks: apply
+- key: wiring.role_assignments
+  environments: [production]
+  question: Welche Gruppe liest die Dokumente in der Produktion?
+  owner: Identity-Team
   blocks: apply

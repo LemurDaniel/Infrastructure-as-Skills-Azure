@@ -1,5 +1,5 @@
 # Wiring between the resources: the roles each consumer's managed identity holds on the
-# resource it calls (resources.<resource>.identity.role_assignments, per stage from the
+# resource it calls (wiring.role_assignments, per stage from the
 # stage file; principals resolved here, where both ends are visible). Data-plane roles
 # only, scoped to the resource, never to the subscription.
 

@@ -21,6 +21,7 @@ boundaries:
   - "Does not create the Application Insights component the bot application reports to, nor the API key the bot resource's developer-insights fields take - the application carries its own connection string."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not render the bot's language understanding, Foundry agent or knowledge sources - application content; a Foundry account is the foundry set's."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
 
 groups:
 
@@ -314,48 +315,29 @@ groups:
           bot that connects but cannot authenticate its users, or the reverse. Each is its own
           endpoint resource and zone.
 
-  # ----------------------------------------------------------------- identity
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this bot?"
-          de: "Wer braucht welche Rolle auf diesem Bot?"
-        type: list
-        plain:
-          en: "Access rights on the bot granted to: {value}."
-          de: "Zugriffsrechte auf den Bot vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          The bot has no data plane to grant; roles here are for whoever edits the channels
-          (`Contributor` on the resource, scoped to it, for the application team's pipeline)
-          and reads the configuration (`Reader`). The application's identity needs no role
-          on the bot - it authenticates as the app identity, not through RBAC.
-
   # ----------------------------------------------------------------- security
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May Direct Line clients connect with a channel secret?"
           de: "Dürfen sich Direct-Line-Clients mit einem Kanal-Secret verbinden?"
-        type: bool
+        type: enum
         plain:
           en: "Connecting with a channel secret is {value}; clients get a token from your application."
           de: "Die Verbindung mit einem Kanalgeheimnis ist {value}; Clients bekommen ein Token von eurer Anwendung."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         forced_when: >
           A Direct Line client that cannot obtain a token through the application (a static
-          page without a backend) is `local_auth: allowed_where_unavoidable` for this bot
+          page without a backend) is `local_auth: enabled` for this bot
           alone, named with the client
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. The Direct Line secret is a
+          Inherited from the deployment's `local_auth`. The Direct Line secret is a
           bearer credential for the channel that ends up in a web page; with local
           authentication off the client presents a token the application obtained with its
           identity (the enhanced-authentication flow), and a leaked secret is useless. Both

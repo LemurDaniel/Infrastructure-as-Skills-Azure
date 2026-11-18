@@ -89,7 +89,7 @@ resource "azapi_resource" "dnssec" {
   body      = {}
 }
 
-# decision: public-dns-zone.access.role_assignments - not carried by the module
+# decision: wiring.role_assignments - not carried by the module
 resource "azurerm_role_assignment" "zone" {
   for_each             = var.role_assignments
   scope                = module.public_dns_zone.resource_id
@@ -133,7 +133,7 @@ run "dnssec" {
 # not-testable: public-dns-zone.records.record_sets - as above, per type
 # not-testable: public-dns-zone.records.verification_records - as above
 # not-testable: public-dns-zone.records.record_ttl_seconds - as above
-# not-testable: public-dns-zone.access.role_assignments - root resource with for_each over a variable; count is asserted where a pattern supplies entries
+# not-testable: wiring.role_assignments - root resource with for_each over a variable; count is asserted where a pattern supplies entries
 ```
 
 `terraform show -json` on the saved plan lists every `azurerm_dns_*_record` with its `records`;

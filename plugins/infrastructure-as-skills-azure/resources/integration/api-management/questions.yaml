@@ -14,7 +14,7 @@ boundaries:
   - "Does not create private DNS zones (`privatelink.azure-api.net`) or the custom domain's public zone - shared infrastructure, owned by a pattern or the platform."
   - "Does not create the Log Analytics workspace or the Application Insights component it logs to."
   - "Does not create the subnet an injected or integrated instance needs, nor its network security group and route table. The subnet is the platform's or the network set's."
-  - "Does not grant the instance's identity its roles on backends and on Key Vault - that is wiring between resources, owned by a pattern. It records the instance's own role assignments in `role_assignments`."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not render API definitions, operations, policies per API, products or subscriptions beyond naming them. They are the API team's content and change at a different pace than the infrastructure; `apis` and `products` are recorded as free text and rendered from the module README."
   - "Does not create certificates or custom domains: a certificate is a Key Vault secret reference and a custom domain needs DNS the platform owns. Both are `open:` entries when asked for."
   - "Does not create the self-hosted gateway, workspaces or the federated-API setup."
@@ -448,28 +448,6 @@ groups:
           instead of injection; classic Developer and Premium use `network_integration` and
           have none.
 
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this instance?"
-          de: "Wer braucht welche Rolle auf dieser Instanz?"
-        type: list
-        plain:
-          en: "Access rights on the instance granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Data-plane access is granted by role, never by key. The narrow roles are `API
-          Management Service Reader Role` for read access to the configuration and `API
-          Management Service Contributor` for the API team; `API Management Service Operator
-          Role` runs the instance without editing APIs. Scope to the narrowest resource the
-          consumer needs, never the subscription. A pattern normally fills this from the
-          consumers it knows about and grants a consumer's role in the pattern, not here.
-          The instance's own roles on backends and Key Vault are wiring, not listed here.
-
   - id: security
     title: Security
     questions:
@@ -566,4 +544,3 @@ groups:
         why: >
           Requests, failed requests, capacity (the number to alert on before the gateway
           saturates) and backend duration.
-

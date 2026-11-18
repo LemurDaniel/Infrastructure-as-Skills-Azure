@@ -155,14 +155,6 @@ decisions:
     bicep_avm: { attribute: 'eventSubscriptions[].deadLetterWithResourceIdentity.deadLetterDestination.properties.blobContainerName', passthrough: true }
     bicep: { attribute: eventSubscriptions child properties.deadLetterWithResourceIdentity.deadLetterDestination.properties.blobContainerName, passthrough: true }
 
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform: { attribute: azurerm_role_assignment, note: scope = the topic's id }
-    bicep_avm:
-      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
-      note: externalResourceRoleAssignments exists and is not used - roles on the targets are the pattern's wiring
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the topic }
-
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:
     terraform: { attribute: azurerm_monitor_diagnostic_setting.log_analytics_workspace_id }

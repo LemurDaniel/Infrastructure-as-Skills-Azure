@@ -13,7 +13,7 @@ boundaries:
   - "Does not create the resource group. Expects one from the spec's context."
   - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform (`privatelink.servicebus.windows.net`)."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
-  - "Does not grant the consumers their roles - that is wiring between resources, owned by a pattern. It records the namespace's own role assignments in `role_assignments`."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not render SAS authorization rules or connection strings. With `local_auth: disabled` there are none; a consumer that cannot use Entra ID is a named departure and an `open:` entry, never a key in a template."
   - "Per-entity tuning beyond the namespace-wide defaults below (a single queue with its own lock duration, forwarding chains, SQL filters on subscriptions) is not a question set decision. It is recorded in `queues` / `topics` as free text and rendered from the module README."
 
@@ -73,6 +73,7 @@ groups:
           en: "Which tier does the namespace need?"
           de: "Welchen Tarif braucht der Namespace?"
         type: enum
+        stage_parameter: true
         plain:
           en: "The namespace is the {value} tier."
           de: "Der Namensraum ist die Stufe {value}."
@@ -155,7 +156,7 @@ groups:
           the default and enough until a measured throughput says otherwise; it also keeps
           ordering and duplicate detection simple, which partitioned entities restrict.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which TLS version is the lowest a client may use?"
           de: "Welche ist die niedrigste TLS-Version, die ein Client verwenden darf?"
@@ -181,9 +182,9 @@ groups:
           de: "Zugriffsschlüssel und Verbindungszeichenfolgen sind {value}."
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
-          allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
-        accepts: [disabled, allowed_where_unavoidable]
-        answer: { deployment: local_auth }
+          enabled: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: enabled } }
         why: >
           Inherited: `local_auth: disabled` renders as local authentication off, so every
           sender and receiver signs in with Entra ID and every action is attributable. The
@@ -577,28 +578,6 @@ groups:
           satisfies `data_residency`. It must be Premium and empty of entities when paired.
           It is an `open:` entry owned by the workload owner when nobody named one.
 
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this namespace?"
-          de: "Wer braucht welche Rolle auf diesem Namespace?"
-        type: list
-        plain:
-          en: "Access rights on the namespace granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Data-plane access is granted by role, never by key. The narrow roles are `Azure
-          Service Bus Data Sender` and `Azure Service Bus Data Receiver`; `Azure Service Bus
-          Data Owner` is for the deploying principal and a person, never for a workload.
-          Scope to the narrowest resource the consumer needs, never the subscription. A
-          pattern normally fills this from the consumers it knows about and grants a
-          consumer's role in the pattern, not here. A sender needs only Sender, a receiver
-          only Receiver - a workload that does both is two role assignments, not Owner.
-
   - id: observability
     title: Observability
     questions:
@@ -662,4 +641,3 @@ groups:
         why: >
           Active messages, dead-lettered messages, throttled requests and server errors -
           the dead-letter count is how a stuck receiver shows up, and the one to alert on.
-

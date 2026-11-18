@@ -80,7 +80,7 @@ module "bot" {
   # private_dns_records: policy - the platform policy writes the records
   private_endpoints_manage_dns_zone_group = false
 
-  # decision: bot-service.security.local_authentication_disabled - inverse input
+  # decision: bot-service.security.local_auth - `disabled` is false on the input
   local_authentication_enabled = false
   # decision: bot-service.security.key_management
   is_cmek_enabled = false

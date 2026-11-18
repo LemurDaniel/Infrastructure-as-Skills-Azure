@@ -44,7 +44,7 @@ resource "azurerm_cognitive_account" "this" {
     type = "SystemAssigned"
   }
 
-  # decision: foundry.security.local_authentication_disabled - inverse argument; callers
+  # decision: foundry.security.local_auth - inverse argument; callers
   # hold a role and a token for the custom subdomain.
   local_auth_enabled = false
   # decision: foundry.security.key_management - platform_managed: no customer_managed_key

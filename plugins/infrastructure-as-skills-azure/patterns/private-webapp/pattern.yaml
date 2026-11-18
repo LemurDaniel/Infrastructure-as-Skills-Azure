@@ -1,0 +1,191 @@
+schema_version: 1
+
+id: private-webapp
+title:
+  en: "Web application with a database"
+  de: "Webanwendung mit Datenbank"
+summary:
+  en: "A web application with a relational database behind it, connected without a password; file storage and a company sign-in on request."
+  de: "Eine Webanwendung mit einer relationalen Datenbank dahinter, ohne Passwort verbunden; Dateiablage und Firmenanmeldung auf Wunsch."
+
+selects_when:
+  - "web app with a database / Webanwendung mit Datenbank"
+  - "an internal business application / eine interne Fachanwendung"
+  - "a portal with its data / ein Portal mit seinen Daten"
+  - "App Service with Azure SQL or PostgreSQL / App Service mit Azure SQL oder PostgreSQL"
+
+boundaries:
+  - "The network, its security groups, the private endpoints with their DNS zones, the Log Analytics workspace and the Application Insights component are not parts: the deployment decisions bring them, as for any system."
+  - "The database's Entra administrator is a group of the organisation (sql-database.identity.entra_admin, postgresql-flexible-server.identity.entra_admins): an open item for the platform team, never chosen here."
+  - "The application's database user is created inside the database by a statement run as that administrator, not by a resource: the pattern records who gets which rights, the hand-over names the step."
+  - "Which databases exist is the customer's answer (Azure SQL) or the workload owner's open item (PostgreSQL); the pattern names none."
+  - "One application. A system of several services as containers is container-microservices, with the database added as a resource outside the pattern."
+
+parts:
+  app-service__web:
+    purpose:
+      en: "Web application"
+      de: "Webanwendung"
+  sql-database:
+    when: { ask: database_engine, equals: azure_sql }
+    purpose:
+      en: "Database of the application"
+      de: "Datenbank der Anwendung"
+  postgresql-flexible-server:
+    when: { ask: database_engine, equals: postgresql }
+    purpose:
+      en: "Database of the application"
+      de: "Datenbank der Anwendung"
+  storage-account:
+    when: { ask: file_storage, equals: true }
+    purpose:
+      en: "Files of the application"
+      de: "Dateien der Anwendung"
+  key-vault:
+    when: { ask: sign_in, equals: company_accounts }
+    purpose:
+      en: "Secret of the company sign-in"
+      de: "Geheimnis der Firmenanmeldung"
+
+asks:
+  - id: database_engine
+    ask:
+      en: "Which database does the application work with - SQL Server or PostgreSQL?"
+      de: "Mit welcher Datenbank arbeitet die Anwendung - SQL Server oder PostgreSQL?"
+    type: enum
+    accepts: [azure_sql, postgresql]
+    default: azure_sql
+    resolved_by: interview
+    topic: application
+    plain:
+      en: "The application's database is {value}."
+      de: "Die Datenbank der Anwendung ist {value}."
+    plain_values:
+      azure_sql: { en: "SQL Server (Azure SQL)", de: "SQL Server (Azure SQL)" }
+      postgresql: { en: "PostgreSQL", de: "PostgreSQL" }
+    why: >
+      The engine is the application's, not the infrastructure's: its code and its
+      migrations are written for one of them, and the wrong one is a rewrite. It picks the
+      database part and the form the application's access takes inside it.
+
+  - id: file_storage
+    ask:
+      en: "Does the application keep files - uploads, documents, images?"
+      de: "Legt die Anwendung Dateien ab - Uploads, Dokumente, Bilder?"
+    type: bool
+    default: false
+    resolved_by: interview
+    topic: data
+    plain:
+      en: "Files: {value}."
+      de: "Dateien: {value}."
+    plain_values:
+      true: { en: "the application keeps files in a storage of its own", de: "die Anwendung legt Dateien in einer eigenen Ablage ab" }
+      false: { en: "the application keeps none", de: "die Anwendung legt keine ab" }
+    why: >
+      Files do not belong in the database or on the web server's disk, which is lost with
+      the next deployment. A storage account is a part with a retention and a backup
+      question of its own, so it exists only where the application keeps files.
+
+  - id: sign_in
+    ask:
+      en: "Who signs the users in - the application itself, or should everyone be sent to the company sign-in before they reach it?"
+      de: "Wer meldet die Nutzer an - die Anwendung selbst, oder soll jeder zuerst zur Firmenanmeldung geschickt werden, bevor er sie erreicht?"
+    type: enum
+    accepts: [application, company_accounts]
+    default: application
+    resolved_by: interview
+    topic: security
+    plain:
+      en: "Sign-in: {value}."
+      de: "Anmeldung: {value}."
+    plain_values:
+      application: { en: "the application handles it itself", de: "die Anwendung regelt sie selbst" }
+      company_accounts: { en: "everyone is sent to the company sign-in first, before a request reaches the application", de: "jeder wird zuerst zur Firmenanmeldung geschickt, bevor eine Anfrage die Anwendung erreicht" }
+    why: >
+      A sign-in in front of the application is a platform feature and brings three things
+      no single resource owns: the authentication setting on the app, a secret in a key
+      vault, and the app's right to read it. With `application` none of them exists - the
+      database connection is passwordless, so the system then has no secret and no vault.
+
+pre_answers:
+  app-service__web:
+    managed_identity:
+      value: system_assigned
+      why: >
+        The application signs in to the database and the file storage with its own
+        identity; the database user and the storage role below are that identity's. A
+        connection string with a password is what this system exists to avoid.
+    entra_sign_in:
+      when: { ask: sign_in, equals: company_accounts }
+      value: existing_app_registration
+      why: >
+        The customer asked for the company sign-in in front of the application, so the
+        platform redirects every visitor before the code runs.
+  sql-database:
+    database_users:
+      value:
+        - { principal: app-service__web, role: db_datareader }
+        - { principal: app-service__web, role: db_datawriter }
+      why: >
+        The application is the one consumer this system knows: it reads and writes rows
+        and nothing else. Schema changes run as the Entra administrator from the
+        application's pipeline, so the running application holds no right to alter tables.
+  postgresql-flexible-server:
+    database_roles:
+      value:
+        - { principal: app-service__web, privileges: [CONNECT, SELECT, INSERT, UPDATE, DELETE] }
+      why: >
+        The application is the one consumer this system knows: it reads and writes rows
+        and nothing else. Schema changes run as the Entra administrator from the
+        application's pipeline, so the running application holds no right to alter tables.
+  key-vault:
+    secret_placeholders:
+      value: [entra-client-secret]
+      why: >
+        The sign-in redeems its code with the app registration's client secret; the app
+        setting references it, so the secret must exist before the first start. Its value
+        is written by whoever owns the registration, never by the deployment.
+
+wiring:
+  access:
+    - from: users
+      to: app-service__web
+      label: { en: "HTTPS 443", de: "HTTPS 443" }
+    - from: app-service__web
+      to: external:entra-id
+      label: { en: "company sign-in", de: "Firmenanmeldung" }
+      when: { ask: sign_in, equals: company_accounts }
+    - from: app-service__web
+      to: sql-database
+      label: { en: "reads and writes data, no password", de: "liest und schreibt Daten, ohne Passwort" }
+      when: { ask: database_engine, equals: azure_sql }
+    - from: app-service__web
+      to: postgresql-flexible-server
+      label: { en: "reads and writes data, no password", de: "liest und schreibt Daten, ohne Passwort" }
+      when: { ask: database_engine, equals: postgresql }
+    - from: app-service__web
+      to: storage-account
+      label: { en: "stores and reads files", de: "legt Dateien ab und liest sie" }
+      when: { ask: file_storage, equals: true }
+    - from: app-service__web
+      to: key-vault
+      label: { en: "reads the sign-in secret", de: "liest das Anmelde-Geheimnis" }
+      when: { ask: sign_in, equals: company_accounts }
+
+  role_assignments:
+    - from: app-service__web
+      to: storage-account
+      role: Storage Blob Data Contributor
+      when: { ask: file_storage, equals: true }
+    - from: app-service__web
+      to: key-vault
+      role: Key Vault Secrets User
+      when: { ask: sign_in, equals: company_accounts }
+
+  secrets:
+    - app: app-service__web
+      setting: MICROSOFT_PROVIDER_AUTHENTICATION_SECRET
+      vault: key-vault
+      secret_name: entra-client-secret
+      when: { ask: sign_in, equals: company_accounts }

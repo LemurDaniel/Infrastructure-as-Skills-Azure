@@ -16,6 +16,18 @@ of the listeners and senders **on each connection**, then the far side: the list
 the App Service hybrid-connection binding, which needs the connection to exist. The workspace
 before the diagnostic setting.
 
+## Roles
+
+A role on the namespace is a `wiring.role_assignments` entry with it as `to`. Data-plane
+access is granted by role, never by key: a listener holds `Azure Relay Listener`, a sender
+`Azure Relay Sender`; `Azure Relay Owner` is for the deploying principal. The scope of an
+entry is the namespace - a hybrid connection is a part of it, no resource of the spec - and
+never the subscription.
+
+An on-premises listener is a service principal or a managed identity with Azure Arc - a
+principal outside the spec, `from: { existing: principal }`; one that has neither is the
+named departure to a SAS rule on that connection.
+
 ## Pitfalls
 
 **Relay is a rendezvous, not a network.** Both sides open outbound 443 to the namespace; the

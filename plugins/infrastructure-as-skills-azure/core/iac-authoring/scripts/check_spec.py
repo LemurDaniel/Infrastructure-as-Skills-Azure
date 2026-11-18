@@ -21,7 +21,9 @@ Read-only. Checks what the contract in references/spec.md promises:
      distinction the exit code makes.
   4a. A resource decision is resources.<resource>.<group>.<question>, naming a
      question of the resource's set in that group (placement.resource_group and
-     placement.location are every resource's).
+     placement.location are every resource's). A role on a resource is no question of
+     its set (`role_assignments`, `data_plane_role_assignments`): it is an entry of
+     `wiring.role_assignments` with the resource as `to`.
   4b. An `enum` value, or each item of a `list` whose `accepts` is a list, is one
      its question accepts - per stage where the value is split by stage.
   5. No decision key uses a backend's attribute spelling
@@ -44,7 +46,7 @@ Read-only. Checks what the contract in references/spec.md promises:
      (spec_ref.py, references/ref-kinds.yaml).
   7b. A question marked `exclusive` (a subnet takes one NSG, one route table, one NAT
      gateway): no part is named by two resources of its set through it.
-  7c. Every subnet a virtual-network of the spec creates - listed, or the implied private
+  7c. Every subnet a virtual-network of the spec creates - listed, or the always present private
      endpoint subnet - is named by a network-security-group, but those Azure refuses one on
      (NO_NSG_SUBNETS).
   8. Resource groups: the groups are derived (rg_roles.groups) - one, `main`, unless
@@ -66,10 +68,29 @@ Read-only. Checks what the contract in references/spec.md promises:
      group's name is computed by the render. A resource's `placement.location`
      is the Foundry account's only: one region, named by a person with a
      reason, not `context.location`, never under `data_residency: country`.
+  9g. Wiring: an access line runs between resources of the spec and actors (users,
+     internet, external:<name>); a role assignment in `wiring.role_assignments` is
+     { from, to, role }, one list for every stage: `to` a resource of the spec, `from` a
+     resource of the spec (its identity holds the role) or a principal outside it as a
+     reference { existing: entra_group | principal } with an id per stage or an open entry
+     naming `wiring.role_assignments`, `role` a role of built-in-roles.yaml (a role
+     Microsoft renamed is a warning naming the current name); a
+     `wiring.secrets` line is { app, setting, vault, secret_name } naming an application and a
+     key vault of the spec and a secret the vault's `secret_placeholders` creates.
+  9i. A keyless resource someone reaches has a role for them: a resource whose `local_auth`
+     is `disabled` and that another resource reaches (`wiring.access`) while no
+     `wiring.role_assignments` entry from that resource's identity (itself, or a
+     user-assigned identity it names) is on it or on a resource inside it, and no open
+     entry names `wiring.role_assignments`. A warning: the first call would be refused.
+  9h. Pattern: `pattern.id` names a pattern the plugin ships and `pattern.answers` its
+     asks, each a value the ask accepts. A value recorded `source: pattern` is exactly
+     what that pattern answers for those answers - a resource decision, or a wiring list
+     as a whole; anything else was decided by someone and says so (`stated`,
+     `{ overridden: <reason> }`). `source: pattern` without a pattern fails.
  10. Deployer roles: what the spec asks of the identity that deploys is in
      `deployment.deployer_roles` - `Contributor` on `subscription` for a
-     `create` group, `Role Based Access Control Administrator` for any role
-     assignment, `Key Vault Secrets Officer` on each vault with secret
+     `create` group, `Role Based Access Control Administrator` for any entry of
+     `wiring.role_assignments`, `Key Vault Secrets Officer` on each vault with secret
      placeholders, `Contributor` on `subscription` too for deployment_scope
      subscription. A `create` group under deployment_scope resource_group is an
      error. A `wiring.access` line is { from, to, label? } and nothing else. A missing role is an error; a spec without the key is a
@@ -109,6 +130,7 @@ BACKEND_SPELLINGS = [
     'shared_access_key_enabled_bool', 'https_traffic_only_enabled',
     'allowBlobPublicAccess', 'publicNetworkAccess', 'allowSharedKeyAccess',
     'supportsHttpsTrafficOnly', 'minimumTlsVersion', 'requireInfrastructureEncryption',
+    'shared_access_key_enabled', 'local_authentication_disabled', 'minimum_tls_version',
 ]
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -118,9 +140,16 @@ import rg_roles  # noqa: E402 - the role table per scheme, shared with the diagr
 sys.path.insert(0, HERE)
 import spec_source  # noqa: E402 - a source as a word or {forced_by | derived_from | overridden: ...}
 import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
+import pattern_lib  # noqa: E402 - a pattern resolved for its answers
 # Resource keys every resource may carry without its set asking them (spec.md: placement, meta).
 BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose')}
 RG_LOCKS = ['production', 'all_stages', 'none']
+# A role on a resource is a relationship between two parts, so it is wiring and no question of
+# a resource set: these ids are refused as a resource decision.
+ROLE_QUESTION_IDS = ('role_assignments', 'data_plane_role_assignments')
+# What a principal outside the spec may be (ref-kinds.yaml): a group of people, or a workload
+# identity - both an Entra object id per stage.
+PRINCIPAL_KINDS = ('entra_group', 'principal')
 # A role satisfies a need when it is the narrow one or broader; broader is the platform's call.
 ROLES_ASSIGN = ['Role Based Access Control Administrator', 'User Access Administrator', 'Owner']
 ROLES_SECRETS = ['Key Vault Secrets Officer', 'Key Vault Administrator', 'Owner']
@@ -129,44 +158,12 @@ ROLES_CREATE_GROUP = ['Contributor', 'Owner']
 
 def load_question_index(yaml):
     """(resource or 'deployment', question id) -> question dict, from the plugin's sets."""
-    index = {}
-
-    def add(owner, doc):
-        for g in (doc.get('groups') or []) if isinstance(doc, dict) else []:
-            for q in (g.get('questions') or []):
-                if isinstance(q, dict) and q.get('id'):
-                    index[(owner, q['id'])] = dict(q, _group=g.get('id'))
-    dep = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
-    if os.path.isfile(dep):
-        with open(dep, encoding='utf-8') as f:
-            add('deployment', yaml.safe_load(f))
-    res_root = os.path.join(PLUGIN, 'resources')
-    if os.path.isdir(res_root):
-        for fam in os.listdir(res_root):
-            fam_dir = os.path.join(res_root, fam)
-            if os.path.isdir(fam_dir):
-                for res in os.listdir(fam_dir):
-                    qs = os.path.join(fam_dir, res, 'questions.yaml')
-                    if os.path.isfile(qs):
-                        with open(qs, encoding='utf-8') as f:
-                            add(res, yaml.safe_load(f))
-    return index
+    return plugin_lib.question_index(yaml)
 
 
-COLORS = {'cyan': '36', 'green': '32', 'red': '31', 'yellow': '33', 'gray': '90'}
-USE_COLOR = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
-
-
-def say(text, color=None):
-    if color and USE_COLOR:
-        print(f"\033[{COLORS[color]}m{text}\033[0m")
-    else:
-        print(text)
-
-
-def ok(text): say(f"[ ok ] {text}", 'green')
-def bad(text): say(f"[fail] {text}", 'red')
-def warn(text): say(f"[warn] {text}", 'yellow')
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'lib'))
+import plugin_lib  # noqa: E402 - the printer, the paths and the set lookup every script shares
+say, ok, bad, warn = plugin_lib.say, plugin_lib.ok, plugin_lib.bad, plugin_lib.warn
 
 
 def main():
@@ -249,6 +246,7 @@ def main():
                 open_keys.add(str(o['key']))
             for e in (o.get('environments') or []):
                 open_stages.setdefault(str(o['key']), set()).add(e)
+    open_whole = set(open_keys)   # the keys an entry names for every stage
     stage_maps = 0
     try:
         questions = load_question_index(yaml)
@@ -304,7 +302,10 @@ def main():
         if tuple(parts[2:]) in BUILTIN_RESOURCE_KEYS:
             return
         q = questions.get((res, parts[3]))
-        if q is None:
+        if q is None and parts[3] in ROLE_QUESTION_IDS:
+            errors.append(f"{path} names no question of the {res} set - a role on a resource is wiring: "
+                          f"an entry {{ from: <identity>, to: {parts[1]}, role: <role> }} in wiring.role_assignments")
+        elif q is None:
             errors.append(f"{path} names no question of the {res} set - an invented key reaches no renderer")
         elif q.get('_group') != parts[2]:
             errors.append(f"{path} is in group '{parts[2]}', but the {res} set asks {parts[3]} in '{q.get('_group')}'")
@@ -367,7 +368,7 @@ def main():
                     if e not in open_stages.get(path, set()):
                         errors.append(f"{path} has no value for stage '{e}' and no open entry naming it")
                 q = question_of(path)
-                if q is not None and not q.get('per_environment') and 'non_production_default' not in q and src != 'overridden':
+                if q is not None and not q.get('per_environment') and 'non_production_default' not in q and not q.get('stage_parameter') and src != 'overridden':
                     errors.append(f"{path} is split by stage, but its question is neither per_environment nor a cost knob - one value for every stage, or the user's departure recorded as overridden")
             elif environments and isinstance(v, dict) and any(k in environments for k in v):
                 errors.append(f"{path} mixes stage names and other keys in its value")
@@ -421,7 +422,7 @@ def main():
             walk(node[k], f"{path}.{key}")
 
     claims = {}  # (set, question, resource, part) -> the decisions claiming it, for `exclusive`
-    for section in ('deployment', 'resources', 'wiring'):
+    for section in ('deployment', 'pattern', 'resources', 'wiring'):
         if has(spec, section):
             walk(spec[section], section)
     for (owner, qid, res, part), by in claims.items():
@@ -435,7 +436,7 @@ def main():
     for rkey, rnode in (get(spec, 'resources') or {}).items():
         if str(rkey).split('__')[0] != 'virtual-network':
             continue
-        for name in sorted(spec_ref.part_names(rnode, subnet_kind.get('part') or 'addressing.subnets', subnet_kind.get('implied'))):
+        for name in sorted(spec_ref.part_names(rnode, subnet_kind.get('listed_in') or 'addressing.subnets', subnet_kind.get('always_present'))):
             if name not in NO_NSG_SUBNETS and (str(rkey), name) not in guarded:
                 errors.append(f"subnet {name} of {rkey} has no network security group - every subnet the spec "
                               f"creates gets one (a network-security-group whose networking.subnets names it)")
@@ -661,37 +662,7 @@ def main():
             errors.append(f"{where} '{value}' under data_residency country - the data stays in the country of "
                           f"context.location; the model is a named gap, or the customer revisits the residency")
 
-    # --- 9b. role assignments name resources that exist ------------------------
-    # A principal spelled like a resource key (a set name, `__instance` optional) must be one
-    # of the spec's resources; a group or a person by name is not checked.
-    set_names = {owner for owner, _ in questions if owner != 'deployment'}
     res_keys = set((get(spec, 'resources') or {}).keys())
-
-    def principals(v):
-        if isinstance(v, dict):
-            if 'principal' in v:
-                yield v['principal']
-            else:
-                for x in v.values():
-                    yield from principals(x)
-        elif isinstance(v, list):
-            for x in v:
-                yield from principals(x)
-
-    for rkey, rnode in (get(spec, 'resources') or {}).items():
-        for gid, gnode in (rnode or {}).items() if isinstance(rnode, dict) else []:
-            ra_node = get(gnode, 'role_assignments')
-            if not isinstance(ra_node, dict):
-                continue
-            for p in sorted({str(p) for p in principals(ra_node.get('value'))}):
-                if p.split('__')[0] in set_names and p not in res_keys:
-                    errors.append(f"resources.{rkey}.{gid}.role_assignments grants a role to '{p}', which is not a resource "
-                                  f"of this spec - a renamed or removed identity leaves its grants behind")
-    for a in (get(get(spec, 'wiring'), 'role_assignments') or {}).get('value') or [] if isinstance(get(get(spec, 'wiring'), 'role_assignments'), dict) else []:
-        for side in ('from', 'to'):
-            p = str(get(a, side) or '')
-            if p.split('__')[0] in set_names and p not in res_keys:
-                errors.append(f"wiring.role_assignments names '{p}' ({side}), which is not a resource of this spec")
 
     # A purpose belongs to its resource, not to the wiring between resources.
     if get(get(spec, 'wiring'), 'purposes') is not None:
@@ -718,6 +689,189 @@ def main():
                 errors.append(f"wiring.access[{i}] has no '{side}'")
         if 'label' in a and not isinstance(a['label'], str):
             errors.append(f"wiring.access[{i}] label is not text")
+
+    # --- 9g. wiring names what exists --------------------------------------------
+    # The diagram skips an endpoint it does not know and the render has nothing to bind a
+    # role or a secret reference to; a misspelt role passes every check until the first apply.
+    wiring_node = get(spec, 'wiring') or {}
+
+    def wiring_list(section):
+        d = get(wiring_node, section)
+        v = d.get('value') if isinstance(d, dict) else None
+        return [x for x in v if isinstance(x, dict)] if isinstance(v, list) else []
+
+    for a in wiring_list('access'):
+        for side in ('from', 'to'):
+            name = a.get(side)
+            if isinstance(name, str) and name and name not in res_keys and not pattern_lib.is_actor(name):
+                errors.append(f"wiring.access {a.get('from')} -> {a.get('to')}: '{name}' is neither a resource of this "
+                              f"spec nor users, internet or external:<name> - the line is not drawn and nothing is wired")
+    try:
+        rbac_roles, data_plane_roles = pattern_lib.load_roles(yaml)
+        renamed_roles = pattern_lib.load_renamed_roles(yaml)
+    except (yaml.YAMLError, OSError):
+        rbac_roles, data_plane_roles, renamed_roles = set(), set(), {}
+    roles_value = get(get(wiring_node, 'role_assignments'), 'value')
+    if environments and isinstance(roles_value, dict) and roles_value and all(k in environments for k in roles_value):
+        errors.append("wiring.role_assignments is split by stage - a role is a relationship between two parts of the "
+                      "system and holds in every stage: one list of { from, to, role }")
+    for r in wiring_list('role_assignments'):
+        src = r.get('from')
+        outside = isinstance(src, dict)
+        shown = (f"existing {src.get('existing')}" if 'existing' in src else str(src)) if outside else src
+        where = f"wiring.role_assignments {shown} -> {r.get('to')}"
+        extra = sorted(str(k) for k in r if k not in ('from', 'to', 'role'))
+        if extra or not all(isinstance(r.get(k), str) and r.get(k) for k in ('to', 'role')) or not src \
+                or not isinstance(src, (str, dict)):
+            errors.append(f"{where} is not {{ from, to, role }}" + (f" (unknown: {', '.join(extra)})" if extra else ''))
+            continue
+        if r['to'] not in res_keys:
+            errors.append(f"{where}: '{r['to']}' is not a resource of this spec - the role has no scope; a narrower "
+                          f"scope is a narrower resource of the spec, a scope outside it a role-assignment resource")
+        if not outside:
+            if src not in res_keys:
+                errors.append(f"{where}: '{src}' is not a resource of this spec - `from` is a resource key (its identity "
+                              f"holds the role) or a principal outside the spec as {{ existing: {' | '.join(PRINCIPAL_KINDS)} }}")
+        elif 'existing' not in src:
+            errors.append(f"{where}: `from` is a resource key of this spec as plain text, or a principal outside it as "
+                          f"{{ existing: {' | '.join(PRINCIPAL_KINDS)} }} - nothing else")
+        elif src['existing'] not in PRINCIPAL_KINDS:
+            errors.append(f"{where}: a principal outside the spec is {{ existing: {' | '.join(PRINCIPAL_KINDS)} }}, "
+                          f"not existing: {src['existing']}")
+        else:
+            # checked like any other reference: an object id per stage, or an open entry naming the key
+            errors.extend(spec_ref.check('wiring.role_assignments', src, src['existing'], ref_kinds,
+                                         get(spec, 'resources') or {}, environments, open_stages, open_whole))
+        if r['role'] in renamed_roles:
+            # a warning: the definition id is the same, and a spec written before the rename is valid
+            warnings.append(f"{where}: '{r['role']}' is called '{renamed_roles[r['role']]}' now (same role definition) - "
+                            f"a render that looks the role up by name needs the current one")
+        elif rbac_roles and r['role'] not in rbac_roles and r['role'] not in data_plane_roles:
+            errors.append(f"{where}: '{r['role']}' is not a built-in role (built-in-roles.yaml) - a misspelt role "
+                          f"fails at the first apply")
+    for sref in wiring_list('secrets'):
+        where = f"wiring.secrets {sref.get('app')}.{sref.get('setting')}"
+        extra = sorted(str(k) for k in sref if k not in ('app', 'setting', 'vault', 'secret_name'))
+        if extra or not all(isinstance(sref.get(k), str) and sref.get(k) for k in ('app', 'setting', 'vault', 'secret_name')):
+            errors.append(f"{where} is not {{ app, setting, vault, secret_name }}" + (f" (unknown: {', '.join(extra)})" if extra else ''))
+            continue
+        if sref['app'] not in res_keys or pattern_lib.kind(sref['app']) not in pattern_lib.APP_KINDS:
+            errors.append(f"{where}: '{sref['app']}' is not an application of this spec")
+        if sref['vault'] not in res_keys or pattern_lib.kind(sref['vault']) != 'key-vault':
+            errors.append(f"{where}: '{sref['vault']}' is not a key vault of this spec")
+            continue
+        held = get(get(get(get(spec, 'resources'), sref['vault']), 'security'), 'secret_placeholders')
+        held = held.get('value') if isinstance(held, dict) else None
+        names = {n for lst in (held.values() if isinstance(held, dict) else [held]) if isinstance(lst, list) for n in lst}
+        if sref['secret_name'] not in names:
+            errors.append(f"{where}: secret '{sref['secret_name']}' is not in resources.{sref['vault']}.security.secret_placeholders - "
+                          f"the reference resolves to nothing at the first start")
+
+    # --- 9i. a keyless resource that is reached has a role for the caller --------
+    # With local authentication off, a caller gets in by a role or not at all. The role is on
+    # the resource or on one inside it (a container of the account, a secret of the vault: a
+    # resource that references it), held by the caller itself or by a user-assigned identity
+    # it names. A warning - the roles may be granted outside the spec.
+    def decisions_of(rnode):
+        for gnode in (rnode or {}).values() if isinstance(rnode, dict) else []:
+            for qid, d in (gnode.items() if isinstance(gnode, dict) else []):
+                if isinstance(d, dict) and 'value' in d:
+                    yield qid, d['value']
+
+    def referenced(rnode):
+        found = set()
+
+        def scan(v):
+            if isinstance(v, dict):
+                if isinstance(v.get('resource'), str):
+                    found.add(v['resource'])
+                for x in v.values():
+                    scan(x)
+            elif isinstance(v, list):
+                for x in v:
+                    scan(x)
+        for _, v in decisions_of(rnode):
+            scan(v)
+        return found
+
+    all_resources = get(spec, 'resources') or {}
+    role_pairs = {(r.get('from'), r.get('to')) for r in wiring_list('role_assignments') if isinstance(r.get('from'), str)}
+    roles_open = 'wiring.role_assignments' in open_keys or 'wiring.role_assignments' in open_stages
+    warned = set()
+    for a in wiring_list('access'):
+        caller, target = a.get('from'), a.get('to')
+        if caller not in res_keys or target not in res_keys or caller == target or (caller, target) in warned or roles_open:
+            continue
+        local_auth = dict(decisions_of(all_resources.get(target))).get('local_auth')
+        if 'disabled' not in (local_auth.values() if isinstance(local_auth, dict) else [local_auth]):
+            continue
+        holders = {caller} | {k for k in referenced(all_resources.get(caller)) if pattern_lib.kind(k) == pattern_lib.IDENTITY_KIND}
+        scopes = {target} | {k for k, n in all_resources.items() if k != caller and target in referenced(n)}
+        if not any((h, s) in role_pairs for h in holders for s in scopes):
+            warned.add((caller, target))
+            warnings.append(f"resources.{target} is keyless (local_auth: disabled) and reached by {caller} (wiring.access), "
+                            f"but {caller} holds no role on it - no wiring.role_assignments entry from "
+                            f"{' or '.join(sorted(holders))} to {target}, so its first call is refused; name the role, "
+                            f"or write an open: entry with the key wiring.role_assignments")
+
+    # --- 9h. the pattern, and what is recorded as its answer ------------------------
+    # `source: pattern` is a claim a script can check: the pattern is data, so the value it
+    # gives for the recorded answers is known. A value that differs was decided by someone.
+    pattern_node = get(spec, 'pattern')
+    applied = None
+    if pattern_node is not None:
+        pid = get(get(pattern_node, 'id'), 'value')
+        pattern_doc = pattern_lib.load(yaml, str(pid)) if isinstance(pid, str) and pid in pattern_lib.pattern_ids() else None
+        if not isinstance(pattern_doc, dict):
+            errors.append(f"pattern.id '{pid}' is not a pattern of this plugin ({', '.join(pattern_lib.pattern_ids()) or 'it ships none'})")
+        else:
+            asks = {a.get('id'): a for a in (pattern_doc.get('asks') or []) if isinstance(a, dict)}
+            given = {}
+            for aid, d in (get(pattern_node, 'answers') or {}).items():
+                value = d.get('value') if isinstance(d, dict) else d
+                ask = asks.get(aid)
+                if ask is None:
+                    errors.append(f"pattern.answers.{aid} is no ask of pattern {pid} ({', '.join(map(str, asks)) or 'it asks nothing'})")
+                elif isinstance(ask.get('accepts'), list) and value not in ask['accepts']:
+                    errors.append(f"pattern.answers.{aid} is '{value}', which the ask does not accept: {', '.join(map(str, ask['accepts']))}")
+                elif ask.get('type') == 'bool' and not isinstance(value, bool):
+                    errors.append(f"pattern.answers.{aid} is '{value}', but the ask is answered true or false")
+                else:
+                    given[aid] = value
+            applied, _ = pattern_lib.apply(pattern_doc, questions, given, environments=environments)
+
+    def pattern_sourced(node, path):
+        if not isinstance(node, dict):
+            return
+        if 'value' in node:
+            if spec_source.kind(node.get('source'))[0] == 'pattern':
+                yield path, node['value']
+            return
+        for k, v in node.items():
+            yield from pattern_sourced(v, path + [str(k)])
+
+    def lines(section, value):
+        keys = {'access': ('from', 'to'), 'role_assignments': ('from', 'to', 'role'),
+                'secrets': ('app', 'setting', 'vault', 'secret_name')}.get(section, ())
+        return sorted(tuple(str(x.get(k)) for k in keys) for x in (value or []) if isinstance(x, dict))
+
+    for section in ('deployment', 'resources', 'wiring'):
+        for p, value in pattern_sourced(get(spec, section), [section]):
+            where = '.'.join(p)
+            if pattern_node is None:
+                errors.append(f"{where} has source pattern, but the spec names no pattern (pattern.id)")
+                continue
+            if applied is None or p[-2:] == ['meta', 'purpose']:
+                continue   # an unknown pattern is reported above; a purpose is the customer's wording
+            expected = applied
+            for part in p:
+                expected = expected.get(part) if isinstance(expected, dict) else None
+            if not isinstance(expected, dict) or 'value' not in expected:
+                errors.append(f"{where} has source pattern, but pattern {pid} does not answer it for the recorded "
+                              f"answers - a value someone decided is stated or {{ overridden: <reason> }}")
+            elif (lines(p[1], value) != lines(p[1], expected['value'])) if section == 'wiring' else (value != expected['value']):
+                errors.append(f"{where} has source pattern, but differs from what pattern {pid} answers for the "
+                              f"recorded answers - a departure is {{ overridden: <reason> }}, an addition stated")
 
     # --- 9c. application monitoring brings its component ------------------------
     # `application_monitoring: enabled` with an application means one application-insights
@@ -753,6 +907,62 @@ def main():
             errors.append(f"resources.{rkey} records no decision, but its set decides {shown} - "
                           f"resolve the set and write its values, defaults included")
 
+    # --- 9e. a required question that applies has a value or an open entry ------
+    # A `required` question has no default: when its depends_on holds, the spec carries its
+    # value or an open entry naming it - leaving it out reads as "nothing open" in the decision
+    # document and the diagram, and the render meets a parameter nobody can fill. Only a
+    # depends_on on a question of the same set whose value the spec records is evaluated; one
+    # nothing records cannot be decided here and is left to the interview.
+    def holds(cond, group_values):
+        conds = cond if isinstance(cond, list) else [cond]
+        for c in conds:
+            if not isinstance(c, dict) or c.get('question') not in group_values:
+                return False
+            v = group_values[c['question']]
+            if 'equals' in c and v != c['equals']:
+                return False
+            if 'not_equals' in c and v == c['not_equals']:
+                return False
+        return True
+
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        if not isinstance(rnode, dict):
+            continue
+        recorded = {}
+        for gid, gnode in rnode.items():
+            for qid, d in (gnode.items() if isinstance(gnode, dict) else []):
+                if isinstance(d, dict) and 'value' in d:
+                    recorded[qid] = (gid, d['value'])
+        values = {qid: v for qid, (_, v) in recorded.items()}
+        for (owner, qid), q in questions.items():
+            if owner != rkey.split('__')[0] or not q.get('required') or 'answer' in q or qid in recorded:
+                continue
+            if not q.get('depends_on') or not holds(q['depends_on'], values):
+                continue
+            path = f"resources.{rkey}.{q.get('_group')}.{qid}"
+            if path not in open_keys and path not in open_stages:
+                # a warning: specs written before this rule may lack such a value and still render
+                warnings.append(f"{path} is required once {q['depends_on'].get('question') if isinstance(q['depends_on'], dict) else 'its condition'} "
+                              f"holds, but the spec has neither its value nor an open entry naming it - "
+                              f"a missing decision reads as nothing open")
+
+    # --- 9f. a subnet's name is its short purpose -------------------------------
+    # The render names every subnet from the convention with the spec's name as <PURPOSE>, so an
+    # Azure-style name (`snet-app`) comes out as snet-<loc>-<env>-<workload>-snet-app-01. A
+    # subnet that exists under such a name says so with azure_name. A warning: specs written
+    # before the rule carry Azure-style names and still render.
+    for rkey, rnode in (get(spec, 'resources') or {}).items():
+        if rkey.split('__')[0] != 'virtual-network' or not isinstance(rnode, dict):
+            continue
+        listed = get(get(get(rnode, 'addressing'), 'subnets'), 'value')
+        per = listed.values() if isinstance(listed, dict) else [listed]
+        named = {str(s.get('name')) for lst in per if isinstance(lst, list) for s in lst
+                 if isinstance(s, dict) and str(s.get('name', '')).lower().startswith('snet-') and not s.get('azure_name')}
+        for name in sorted(named):
+            warnings.append(f"resources.{rkey}.addressing.subnets names '{name}' - a subnet's name is its short "
+                            f"purpose ('{name[5:]}'), the render builds the Azure name from the convention; "
+                            f"a subnet that exists under this name carries azure_name: {name}")
+
     # --- 10. deployer roles ------------------------------------------------
     def filled(v):
         """A list value, or a stage map of lists, that holds at least one entry."""
@@ -766,12 +976,7 @@ def main():
     if creates or scope == 'subscription':
         needs.append(('a resource group is created' if creates else 'the deployment runs at subscription scope',
                       ROLES_CREATE_GROUP, ['subscription'], ['deployment.resource_groups_created'] if creates else ['deployment.deployment_scope']))
-    assigning = []
     for rkey, rnode in (get(spec, 'resources') or {}).items():
-        for gnode in (rnode or {}).values() if isinstance(rnode, dict) else []:
-            d = get(gnode, 'role_assignments')
-            if isinstance(d, dict) and filled(d.get('value')):
-                assigning.append(f'resources.{rkey}')
         if str(rkey).split('__')[0] == 'key-vault':
             d = get(get(rnode, 'security'), 'secret_placeholders')
             if isinstance(d, dict) and filled(d.get('value')):
@@ -779,9 +984,7 @@ def main():
                               [f'resources.{rkey}.security.secret_placeholders']))
     d = get(get(spec, 'wiring'), 'role_assignments')
     if isinstance(d, dict) and filled(d.get('value')):
-        assigning.append('wiring.role_assignments')
-    if assigning:
-        needs.insert(0, ('roles are assigned', ROLES_ASSIGN, ['resource_group', 'subscription'], assigning))
+        needs.insert(0, ('roles are assigned', ROLES_ASSIGN, ['resource_group', 'subscription'], ['wiring.role_assignments']))
 
     granted = dep_value('deployer_roles')
     dr_errors = len(errors)

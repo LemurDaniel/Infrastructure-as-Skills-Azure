@@ -332,15 +332,6 @@ decisions:
       gap: not a module parameter; a Microsoft.Authorization/roleAssignments AcrPull per registry in the root for the kubeletIdentityObjectId output
     bicep:
       gap: "a Microsoft.Authorization/roleAssignments per registry (scope the registry; properties.principalId, roleDefinitionId - bicep build @2022-04-01); the kubelet identity's key under properties.identityProfile is a map key the build does not check, and the AcrPull role id is in no source"
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }' }
-    terraform:
-      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
-      note: 'one per entry, scope = the cluster''s id or narrower (source: azurerm 5.12 schema)'
-    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
-      note: 'one per entry, scope the cluster; roleDefinitionId is the role''s id, not its name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
 
   # ----------------------------------------------------------------- security
   security.defender_enabled:

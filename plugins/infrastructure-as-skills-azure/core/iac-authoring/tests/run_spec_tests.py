@@ -16,7 +16,11 @@ enabled with an app and no application-insights resource fails; with the compone
 the workspace written as `{}`. An access line with a key other than from, to and label (an
 unquoted comma in the label) or without its target fails, and so does an enum value outside its
 question's `accepts`, on a resource and on the deployment, and a resource key that is no
-question of its set, sits in another group, or sits directly under the resource. A mutation whose text is no
+question of its set, sits in another group, or sits directly under the resource. A role assignment is
+wiring: `from` a resource of the spec or a principal outside it as { existing: entra_group | principal }
+with its id or an open entry, `to` a resource of the spec, a built-in role, one list for every stage -
+each departure fails, a role recorded on its target among them. A keyless resource that another one
+reaches warns until that one holds a role on it or an open entry names the roles. A mutation whose text is no
 longer in the fixture fails the run: a test that cannot break anything proves nothing. Last, the
 Shape example of references/spec.md must pass the check and be in write_spec.py's canonical form,
 so the reference cannot show a spec the plugin would refuse. On it, a per_environment range or
@@ -24,7 +28,9 @@ reference object written as one value fails, and so does every broken reference:
 a stage map, a resource of another kind or not in the spec, a subnet without its part or with
 one the network does not name, an existing one with no id and no open entry, an id of another
 type, a stage without an id, a name beside it. An existing one with its ids, or with an open
-entry, passes.
+entry, passes. A required question whose depends_on holds (the sign-in's client id) warns
+without a value and without an open entry, and is quiet with either. An Azure-style subnet
+name (snet-app) warns - the name is the subnet's short purpose - unless it carries azure_name.
 
 Usage:
     python3 run_spec_tests.py
@@ -51,7 +57,7 @@ SCHEME_LIFECYCLE = "  resource_group_scheme: { value: lifecycle, source: asked }
 SCOPE_RG = "  deployment_scope: { value: resource_group, source: asked }\n"
 ISOLATION_RG ="  stage_isolation: { value: resource_group, source: asked }\n"
 GRANT_SUB = "      - { role: Contributor, scope: subscription, for: [deployment.resource_groups_created] }\n"
-GRANT_RBAC = "      - { role: Role Based Access Control Administrator, scope: resource_group, for: [resources.key-vault] }\n"
+GRANT_RBAC = "      - { role: Role Based Access Control Administrator, scope: resource_group, for: [wiring.role_assignments] }\n"
 GRANT_KV = "      - { role: Key Vault Secrets Officer, scope: key-vault, for: [resources.key-vault.security.secret_placeholders] }\n"
 LOCAL_AUTH_LINE = "  local_auth: { value: disabled, source: default }\n"
 MONITORING = "  application_monitoring: { value: enabled, source: default }\n"
@@ -66,7 +72,7 @@ SHAPE_MUTATIONS = [
 ]
 
 # References (spec_ref.py): on the Shape example's integration subnet and a workspace outside it.
-SHAPE_SUBNET = "        value:  # a reference: a part of a resource of this spec, the same in every stage\n          resource: virtual-network\n          part: snet-app\n"
+SHAPE_SUBNET = "        value:  # a reference: a part of a resource of this spec, the same in every stage\n          resource: virtual-network\n          part: app\n"
 LAW = "  diagnostics_destination:\n    value:\n      existing: log_analytics_workspace\n"
 LAW_ID = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-platform/providers/Microsoft.OperationalInsights/workspaces/law-platform"
 LAW_IDS = "".join(f"        {s}: {LAW_ID}\n" for s in ('development', 'test', 'production'))
@@ -74,15 +80,15 @@ SHAPE_MUTATIONS += [
     ('a name and resource group instead of a reference', SHAPE_RANGES,
      SHAPE_RANGES + "  diagnostics_destination: {value: {name: law-platform, resource_group_name: rg-platform}, source: stated}\n",
      "deployment.diagnostics_destination holds {'name': 'law-platform'"),
-    ('a bare subnet name', SHAPE_SUBNET, "        value: snet-app\n", "integration_subnet holds 'snet-app', which is no reference"),
+    ('a bare subnet name', SHAPE_SUBNET, "        value: app\n", "integration_subnet holds 'app', which is no reference"),
     ('a reference split by stage', SHAPE_SUBNET,
-     "        value:\n          development: {resource: virtual-network, part: snet-app}\n"
-     "          test: {resource: virtual-network, part: snet-app}\n          production: {resource: virtual-network, part: snet-app}\n",
+     "        value:\n          development: {resource: virtual-network, part: app}\n"
+     "          test: {resource: virtual-network, part: app}\n          production: {resource: virtual-network, part: app}\n",
      'integration_subnet is a reference split by stage'),
     ('a resource of another kind', SHAPE_SUBNET, "        value:\n          resource: storage-account\n",
      "references 'storage-account', which is no subnet"),
     ('a subnet without its part', SHAPE_SUBNET, "        value:\n          resource: virtual-network\n", 'without part'),
-    ('a part the network does not name', SHAPE_SUBNET, SHAPE_SUBNET.replace('part: snet-app', 'part: snet-gone'),
+    ('a part the network does not name', SHAPE_SUBNET, SHAPE_SUBNET.replace('part: app', 'part: snet-gone'),
      "part 'snet-gone' of 'virtual-network', which its addressing.subnets does not name"),
     ('a resource the spec does not hold', SHAPE_SUBNET, SHAPE_SUBNET.replace('resource: virtual-network', 'resource: virtual-network__hub'),
      "references resource 'virtual-network__hub', which this spec does not hold"),
@@ -110,12 +116,12 @@ SHAPE_MUTATIONS += [
      'lifecycle_ignore is not { value, reason }'),
 ]
 
-# NSGs on the Shape example, which guards snet-app and the implied private endpoint subnet
+# NSGs on the Shape example, which guards app and the implied private endpoint subnet
 # `endpoints`: an association is exclusive (a subnet takes one NSG), and every subnet the spec
 # creates has one. (name, [(find, replace)], expected; None = must pass)
 def nsg(name):
     return (f"  network-security-group__{name}:\n    networking:\n      subnets:\n        value:\n"
-            "        - resource: virtual-network\n          part: snet-app\n        source: stated\n")
+            "        - resource: virtual-network\n          part: app\n        source: stated\n")
 
 
 SHAPE_MODULE = "    contains: [virtual-network, network-security-group__app, network-security-group__endpoints]\n"
@@ -128,17 +134,32 @@ SHAPE_NSG_ENDPOINTS = ("  network-security-group__endpoints:\n    networking:\n 
 SHAPE_EDITS = [
     ('a second NSG on a subnet', [("\n  app-service:\n", "\n" + nsg('a') + "  app-service:\n"),
                                   (SHAPE_MODULE, SHAPE_MODULE.replace(']', ', network-security-group__a]'))],
-     'snet-app of virtual-network is claimed by 2 network-security-group resources'),
+     'app of virtual-network is claimed by 2 network-security-group resources'),
     ('a subnet without an NSG', [(SHAPE_NSG_ENDPOINTS, ''),
                                  (SHAPE_MODULE, SHAPE_MODULE.replace(', network-security-group__endpoints', ''))],
      'subnet endpoints of virtual-network has no network security group'),
     # Listed with the private endpoint prefix, the subnet is that one by its own name: no `endpoints`.
     ('the private endpoint subnet listed by name',
-     [(f"          {s}:\n          - name: snet-app\n", f"          {s}:\n          - name: snet-pe\n            prefix: {p}\n          - name: snet-app\n")
+     [(f"          {s}:\n          - name: app\n", f"          {s}:\n          - name: snet-pe\n            prefix: {p}\n          - name: app\n")
       for s, p in (('development', '10.42.0.0/27'), ('test', '10.43.0.0/27'), ('production', '10.44.0.0/27'))]
      + [("          part: endpoints  # the private endpoint subnet: no listed subnet carries its prefix\n", "          part: snet-pe\n")],
      None),
 ]
+
+# The fixture's one role assignment, and principals outside the spec that are valid: a group
+# with its object id, a workload identity whose id an open entry asks for.
+ROLE = "      - { from: app-service, to: key-vault, role: Key Vault Secrets User }\n"
+ROLES_OPEN = ("\nopen:\n  - key: wiring.role_assignments\n    question: Which identity reads the vault?\n"
+              "    owner: identity team\n    blocks: apply\n")
+ROLE_PASSES = [
+    ('a group outside the spec with its object id',
+     ROLE.replace('from: app-service', 'from: { existing: entra_group, id: { production: 22222222-3333-4444-5555-666666666666 } }'), ''),
+    ('a workload identity outside the spec whose id is an open entry',
+     ROLE.replace('from: app-service', 'from: { existing: principal }'), ROLES_OPEN),
+]
+# A keyless resource someone reaches: the fixture's app reaches the storage account.
+KEYLESS = "    security:\n      local_auth: { value: disabled, source: deployment }\n"
+KEYLESS_WARNING = 'resources.storage-account is keyless (local_auth: disabled) and reached by app-service'
 
 # The fixture's storage account up to its first group: its meta comes first.
 STORAGE = "  storage-account:\n    meta:\n      purpose: { value: Product images, source: stated }\n"
@@ -162,7 +183,7 @@ MUTATIONS = [
     ('a concern placement under the lifecycle scheme', SCHEME, SCHEME_LIFECYCLE, "'data' is not a role of the lifecycle scheme"),
     ('a scheme under a single layout', LAYOUT, "  resource_group_layout: { value: single, source: asked }\n", 'resource_group_scheme is stale'),
     ('forced_by names a key the spec does not have', 'forced_by: deployment.address_space }', 'forced_by: deployment.adress_space }', "forced_by 'deployment.adress_space', which is neither a key in this spec"),
-    ('forced_by lists a key the spec does not have', 'resources.key-vault.identity.role_assignments,', 'resources.key-vault.identity.role_asignments,', "forced_by 'resources.key-vault.identity.role_asignments'"),
+    ('forced_by lists a key the spec does not have', 'wiring.role_assignments,', 'wiring.role_asignments,', "forced_by 'wiring.role_asignments'"),
     ('a placement without its reason', 'source: { overridden: the vault is kept with the data it protects }', "source: { overridden: '' }", 'overridden with no reason'),
     ('a pointer beside its source', 'source: { overridden: the vault is kept with the data it protects }',
      'source: overridden, reason: the vault is kept with the data it protects', 'carries reason beside its source'),
@@ -178,8 +199,30 @@ MUTATIONS = [
     ('a grant without a scope', GRANT_KV, GRANT_KV.replace(' scope: key-vault,', ''), 'not a list of { role, scope, for }'),
     ('a created group under resource-group stage isolation', CREATED, CREATED + ISOLATION_RG, "resource group 'application' is created (resource_groups_created) under stage_isolation resource_group"),
     ('a subscription grant under resource-group stage isolation', CREATED, CREATED + ISOLATION_RG, 'grants Contributor on subscription under stage_isolation'),
-    ('a role granted to an identity the spec does not have', "            - { principal: app-service, role: Key Vault Secrets User }\n",
-     "            - { principal: user-assigned-identity__gone, role: Key Vault Secrets User }\n", "'user-assigned-identity__gone', which is not a resource"),
+    ('a role granted to an identity the spec does not have', ROLE, ROLE.replace('from: app-service', 'from: user-assigned-identity__gone'),
+     "'user-assigned-identity__gone' is not a resource of this spec"),
+    ('a role granted to a name', ROLE, ROLE.replace('from: app-service', 'from: sg-shop-operators'),
+     "'sg-shop-operators' is not a resource of this spec - `from` is a resource key"),
+    ('a role on a resource the spec does not have', ROLE, ROLE.replace('to: key-vault', 'to: key-vault__gone'),
+     "'key-vault__gone' is not a resource of this spec - the role has no scope"),
+    ('a role with a field beyond from, to and role', ROLE, ROLE.replace(' }', ', scope: account }'),
+     'is not { from, to, role } (unknown: scope)'),
+    ('a role that is no built-in role', ROLE, ROLE.replace('Key Vault Secrets User', 'Key Vault Secret Reader'),
+     "'Key Vault Secret Reader' is not a built-in role"),
+    ('a principal outside the spec with no id and no open entry', ROLE, ROLE.replace('from: app-service', 'from: { existing: entra_group }'),
+     'references an existing entra_group with no id and no open entry'),
+    ('a principal outside the spec whose id is no object id', ROLE,
+     ROLE.replace('from: app-service', 'from: { existing: entra_group, id: { production: sg-shop-operators } }'),
+     'which is not an object id (GUID)'),
+    ('a principal outside the spec of a kind that is no principal', ROLE, ROLE.replace('from: app-service', 'from: { existing: storage_account }'),
+     'a principal outside the spec is { existing: entra_group | principal }, not existing: storage_account'),
+    ('a resource of the spec written as a reference', ROLE, ROLE.replace('from: app-service', 'from: { resource: app-service }'),
+     '`from` is a resource key of this spec as plain text'),
+    ('role assignments split by stage', "    value:\n" + ROLE, "    value:\n      production:\n  " + ROLE,
+     'wiring.role_assignments is split by stage'),
+    ('a role recorded on its target', STORAGE + "    networking:\n",
+     STORAGE + "    identity:\n      role_assignments: { value: [], source: default }\n    networking:\n",
+     'resources.storage-account.identity.role_assignments names no question of the storage-account set - a role on a resource is wiring'),
     ('a created group at resource-group scope', CREATED, CREATED + SCOPE_RG, "resource group 'application' is created (resource_groups_created) under deployment_scope resource_group"),
     ('subscription scope under resource-group stage isolation', CREATED,
      CREATED + ISOLATION_RG + SCOPE_RG.replace('resource_group,', 'subscription,'), 'deployment_scope is subscription under stage_isolation'),
@@ -384,6 +427,28 @@ def main():
         rc, out = run(text)
         report(rc == 0, 'application monitoring with its component stays valid', out[-400:])
 
+    for name, replace, appended in ROLE_PASSES:
+        if base.count(ROLE) != 1:
+            report(False, name, f"the fixture no longer holds once: {ROLE!r}")
+            continue
+        rc, out = run(base.replace(ROLE, replace) + appended)
+        report(rc == 0 and 'Contract ok' in out, name, out[-500:])
+
+    keyless_at = STORAGE + "    networking:\n"
+    if base.count(keyless_at) != 1 or base.count(ROLE) != 1:
+        for name in ('warns', 'a role', 'an open entry', 'not keyless'):
+            report(False, f"a keyless resource that is reached ({name})", 'the fixture no longer holds the storage account or the role once')
+    else:
+        keyless = base.replace(keyless_at, STORAGE + KEYLESS + "    networking:\n")
+        rc, out = run(base)
+        report(rc == 0 and KEYLESS_WARNING not in out, 'a reached resource that is not keyless does not warn', out[-500:])
+        rc, out = run(keyless)
+        report(rc == 0 and KEYLESS_WARNING in out, 'a keyless resource reached by one that holds no role on it warns', out[-500:])
+        rc, out = run(keyless.replace(ROLE, ROLE + "      - { from: app-service, to: storage-account, role: Storage Blob Data Reader }\n"))
+        report(rc == 0 and KEYLESS_WARNING not in out, 'the same resource with a role for its caller does not warn', out[-500:])
+        rc, out = run(keyless + ROLES_OPEN)
+        report(rc == 0 and KEYLESS_WARNING not in out, 'the same resource with the roles named by an open entry does not warn', out[-500:])
+
     shape = shape_example()
     if shape is None:
         report(False, 'the Shape example of spec.md passes', "references/spec.md has no ```yaml block under '## Shape'")
@@ -413,8 +478,49 @@ def main():
                 ok = rc == 0 and 'Contract ok' in out if expected is None else rc == 1 and expected in out
                 report(ok, name if expected is None else f"breaks: {name}", f"expected {expected!r}; got exit {rc}:\n{out[-500:]}")
 
+        # A required question whose depends_on holds: its value, or an open entry naming it.
+        # Without either the check warns, so nothing reads as "nothing open".
+        identity = ("    identity:\n      managed_identity:\n        value: system_assigned\n"
+                    "        source: default\n\n  storage-account:")
+        sign_in = identity.replace("\n\n  storage-account:",
+                                   "\n      entra_sign_in:\n        value: existing_app_registration\n"
+                                   "        source: stated\n\n  storage-account:")
+        client_id = ("      entra_client_id:\n        value:\n"
+                     "          development: 00000000-0000-0000-0000-000000000001\n"
+                     "          test: 00000000-0000-0000-0000-000000000001\n"
+                     "          production: 00000000-0000-0000-0000-000000000002\n"
+                     "        source: stated\n\n  storage-account:")
+        open_entry = ("- key: resources.app-service.identity.entra_client_id\n  environments: [production]\n"
+                      "  question: Wie lautet die Client-ID der App-Registrierung?\n"
+                      "  owner: Workload-Owner\n  blocks: apply\n")
+        warning = 'resources.app-service.identity.entra_client_id is required once entra_sign_in holds'
+        if shape.count(identity) != 1:
+            for name in ('warns', 'open entry', 'value'):
+                report(False, f"a required question that applies ({name})",
+                       f"the Shape example holds the app-service identity {shape.count(identity)} times")
+        else:
+            text = shape.replace(identity, sign_in)
+            rc, out = run(text)
+            report(rc == 0 and warning in out, 'a required question that applies, with no value and no open entry, warns', out[-500:])
+            rc, out = run(text + open_entry)
+            report(rc == 0 and warning not in out, 'the same question named by an open entry does not warn', out[-500:])
+            rc, out = run(text.replace("        source: stated\n\n  storage-account:", "        source: stated\n" + client_id))
+            report(rc == 0 and warning not in out, 'the same question with its value does not warn', out[-500:])
+
+        # A subnet's name is its short purpose: an Azure-style name warns, unless the subnet
+        # exists under it (azure_name); the Shape example's short names do not.
+        subnet_warning = "a subnet's name is its short purpose"
+        rc, out = run(shape)
+        report(subnet_warning not in out, 'short subnet names do not warn', out[-500:])
+        azure_style = shape.replace('- name: app\n', '- name: snet-app\n').replace('part: app\n', 'part: snet-app\n')
+        rc, out = run(azure_style)
+        report(rc == 0 and subnet_warning in out and "('app')" in out, 'an Azure-style subnet name warns', out[-500:])
+        kept = azure_style.replace('- name: snet-app\n', '- name: snet-app\n            azure_name: snet-app\n')
+        rc, out = run(kept)
+        report(rc == 0 and subnet_warning not in out, 'an Azure-style name with azure_name does not warn', out[-500:])
+
     print('-' * 70)
-    total = 8 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)
+    total = 18 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS) + len(ROLE_PASSES)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 

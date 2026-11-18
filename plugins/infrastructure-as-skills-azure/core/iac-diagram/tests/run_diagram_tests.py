@@ -280,16 +280,15 @@ def case_private_stages_open(cells):
             bad.append(f"line {e['source']} -> {e['target']} is not on a vertical track outside every icon slot")
         if not e['value']:
             bad.append(f"line {e['source']} -> {e['target']} lost its label")
-    for key, node in spec['resources'].items():
-        ras = (node.get('identity') or {}).get('role_assignments')
-        ras = ras.get('value') if isinstance(ras, dict) else None
-        if isinstance(ras, dict):
-            ras = ras.get('production') or next(iter(ras.values()))
-        for ra in ras or []:
-            label = ' '.join(v['value'] for k, v in cells.items() if k in (f'res-{key}', f'res-{key}-icon'))
-            # the principal is named as the picture names it (kind title · instance), the role verbatim
-            if f": {ra['role']}" not in label:
-                bad.append(f"{key}: role '{ra['principal']}: {ra['role']}' is not on the label")
+    entries = spec['wiring']['role_assignments']['value']
+    if len(entries) != 5:
+        bad.append(f"the fixture holds {len(entries)} role assignment(s), the case expects its 5")
+    for ra in entries:
+        key = ra['to']
+        label = ' '.join(v['value'] for k, v in cells.items() if k in (f'res-{key}', f'res-{key}-icon'))
+        # the principal is named as the picture names it (kind title · instance), the role verbatim
+        if f": {ra['role']}" not in label:
+            bad.append(f"{key}: role '{ra['from']}: {ra['role']}' is not on the label")
     return bad
 
 

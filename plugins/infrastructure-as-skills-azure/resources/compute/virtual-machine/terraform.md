@@ -155,8 +155,10 @@ with the generation flag left on. `shutdown_schedules` and `azure_backup_configu
 empty maps when the decisions are off. The Linux and Windows
 calls were validated with `terraform validate` against v0.21.0 (azurerm 4.81, azapi 2.13).
 
-The role assignments use the principal ids the pattern supplies; a role the machine's identity
-needs elsewhere is `role_assignments_system_managed_identity` (external scopes) and is wiring.
+`role_assignments` takes the `wiring.role_assignments` entries with the machine as `to`
+([role-assignments.md](../../../core/iac-rendering/references/role-assignments.md)). The module's
+`role_assignments_system_managed_identity` (roles of the machine's identity on external scopes)
+is not used: such a role is an entry with the machine as `from`, rendered at its target.
 
 ### Tests
 

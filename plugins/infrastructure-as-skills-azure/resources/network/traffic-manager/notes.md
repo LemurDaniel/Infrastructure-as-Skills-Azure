@@ -32,6 +32,14 @@ endpoint outside Azure, a Front Door per region, a staged migration.
 Deletion runs the other way: the zone's record first, or the name resolves to nothing while the
 TTL runs.
 
+## Roles
+
+A role on the profile is a `wiring.role_assignments` entry with it as `to`. The identity
+that disables an endpoint during a planned failover or a release - a pipeline, an operations
+group - holds `Traffic Manager Contributor` on the profile, never Contributor on the
+resource group. A render changes the profile with the deploying identity, so a profile
+nobody else operates has no entry.
+
 ## Pitfalls
 
 **The modules disagree on everything that has a default.** Terraform requires the routing method,
@@ -68,7 +76,8 @@ healthy children keep the parent endpoint up.
 tool for one decision - where the next region goes. On for a few weeks, then off.
 
 **A disabled endpoint is the planned failover.** `enabled: false` on an endpoint takes it out of
-rotation without deleting it; that is the release-day move and what `role_assignments` is for.
+rotation without deleting it; that is the release-day move and what a role on the profile is
+for (*Roles*).
 
 ## Not covered here, and why
 

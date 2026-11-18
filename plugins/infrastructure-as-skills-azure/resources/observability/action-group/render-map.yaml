@@ -157,10 +157,3 @@ decisions:
     terraform: { attribute: enabled, passthrough: true }
     bicep_avm: { attribute: enabled, passthrough: true, note: default true; a stage parameter }
     bicep: { attribute: properties.enabled, passthrough: true }
-
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm: { attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }' }
-    terraform: { attribute: azurerm_role_assignment, note: scope = the action group's id }
-    bicep_avm: { attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep: { attribute: Microsoft.Authorization/roleAssignments, note: scope = the action group }

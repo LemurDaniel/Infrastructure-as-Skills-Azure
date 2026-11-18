@@ -23,6 +23,17 @@ workflows from the integration team's pipeline, then the API connections and the
 then the roles of the identity on what the connections reach. Consumption: identity, roles,
 workflow resources, then the definitions. The workspace before the diagnostic setting.
 
+## Roles
+
+A role on the logic app is a `wiring.role_assignments` entry with it as `to`. It says who
+may edit, run and read the workflows: `Logic App Standard Developer` and `Logic App Standard
+Operator` on a Standard app, `Logic App Contributor` and `Logic App Operator` on
+Consumption. A reader of run history needs the operator role, not Contributor on the
+resource group.
+
+The app's own roles on storage, Key Vault and the systems it calls are entries with the app
+as `from`.
+
 ## Pitfalls
 
 **The Terraform site module renders the storage key for a logic app, and nothing overrides it.**
@@ -38,7 +49,7 @@ change either; re-read the pinned README.
 managed identity; the Azure Files share that holds the app content is mounted with a connection
 string. Keep it in Key Vault as a reference, keep shared-key access on the storage account **on**
 (the share needs it) with the key rotated by the vault, and name it in the handover - a storage
-set that renders `shared_access_key_enabled: false` for this account breaks the app at start.
+set that renders `local_auth: disabled` for this account breaks the app at start.
 
 **A private storage account needs VNet integration and `vnet_route_all`.** The host reaches its
 storage over the integration subnet; without integration, or with only private-range routing and

@@ -47,13 +47,13 @@ decisions:
   addressing.subnets:
     terraform_avm:
       attribute: 'subnets.<name> = { name, address_prefixes = [prefix] }'
-      note: a map keyed by subnet name - the module's own rule, same reason as the authored for_each
+      note: a map keyed by the subnet's short name, the module's own rule; name from the convention with the short name as purpose (azure_name verbatim)
     terraform:
       attribute: azurerm_subnet
-      note: one each, for_each keyed by name, never count; never a subnet block on the vnet beside them
+      note: one each, for_each keyed by the short name, never count; name from the convention with it as purpose (azure_name verbatim); never a subnet block on the vnet beside them
     bicep_avm:
       attribute: 'subnets[] = { name, addressPrefix }'
-      note: inline on the vnet; subnetResourceIds is an array in the order of subnets
+      note: inline on the vnet; name from the convention with the short name as purpose (azureName verbatim); subnetResourceIds is an array in the order of subnets
     bicep:
       attribute: "properties.subnets[] = { name, properties: { addressPrefix } }"
       note: inline; child subnets resources only when the vnet declares no inline subnets at all

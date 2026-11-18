@@ -93,7 +93,7 @@ module "mysql" {
   # private_dns_records: policy - the platform policy writes the record
   private_endpoints_manage_dns_zone_group = false
 
-  # decision: mysql-flexible-server.security.minimum_tls_version / password_authentication_disabled
+  # decision: mysql-flexible-server.security.min_tls_version / password_authentication_disabled
   # decision: mysql-flexible-server.observability.audit_logging
   server_configuration = {
     aad_auth_only            = { name = "aad_auth_only", value = "ON" }

@@ -16,6 +16,17 @@ scale set, then the roles on the set, then the autoscale setting. The identity's
 have propagated before the first instance starts if the instance reads a secret or a blob as it
 boots - the cause of the usual "first instance unhealthy, the next one fine".
 
+## Roles
+
+A role on the scale set is a `wiring.role_assignments` entry with it as `to`. The roles over
+the set itself are for the people or the pipeline that may change its model or scale it -
+never `Contributor` on the resource group for the sake of one set. Signing in to an instance
+with Entra needs the system-assigned identity a Flexible set does not have, so access to
+instances is by key and the private network. A set without any entry is valid.
+
+A role the set's identity needs elsewhere (Key Vault secrets, storage data) is an entry with
+the set's user-assigned identity as `from`.
+
 ## Pitfalls
 
 **Flexible is a different thing from Uniform.** Instances are ordinary virtual machines in

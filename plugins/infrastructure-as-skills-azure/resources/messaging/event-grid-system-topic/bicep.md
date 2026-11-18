@@ -27,7 +27,7 @@ What each decision renders to - the parameter and the literal of every answer - 
 | Input | Parameter | Note |
 |---|---|---|
 | subject filter (content of the entry) | `filter.subjectBeginsWith`, `subjectEndsWith` | |
-| roles on the targets | `externalResourceRoleAssignments` exists; **not used** - wiring belongs to the pattern | |
+| roles on the targets | `externalResourceRoleAssignments` exists; **not used** - a role on a target is a `wiring.role_assignments` entry with the target as `to` | |
 | `deployment.resource_lock` | no `lock` - the type is not on the list | |
 | `deployment.module_telemetry` | `enableTelemetry` | |
 | `context.tags` | `tags` | |

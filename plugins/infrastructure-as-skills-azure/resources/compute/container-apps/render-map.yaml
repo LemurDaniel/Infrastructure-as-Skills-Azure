@@ -32,6 +32,19 @@ decisions:
     bicep: { gap: the deployment's resource group scope; no property }
 
   # -------------------------------------------------------------- environment
+  environment.hosting_environment:
+    not_rendered: decides whether the environment module or resource is rendered; shared takes the owner's environment id through shared_environment_with and drops workload_profile, zone_redundant, internal, infrastructure_subnet, public_network_access, peer_traffic_encryption and the three diagnostic decisions
+  environment.shared_environment_with:
+    terraform_avm:
+      module: Azure/avm-res-app-containerapp/azurerm
+      attribute: container_app_environment_resource_id
+      note: the owner's environment module output; the owner's environment is rendered first. workload_profile_name is the owner's workload_profile
+    terraform: { gap: "the argument of azurerm_container_app that takes the environment's id is in no allowed source; read it from terraform providers schema -json, the value is the owner's environment id" }
+    bicep_avm:
+      module: avm/res/app/container-app
+      attribute: environmentResourceId
+      note: the owner's environment module output; workloadProfileName is the owner's workload_profile
+    bicep: { gap: "the property of Microsoft.App/containerApps that takes the environment's id is in no allowed source; read it from bicep build, the value is the owner's environment id" }
   environment.workload_profile:
     terraform_avm:
       module: Azure/avm-res-app-managedenvironment/azurerm
@@ -265,19 +278,6 @@ decisions:
       attribute: 'secrets[] = { name, keyVaultUrl, identity }'
       note: never value
     bicep: { attribute: 'properties.configuration.secrets[] = { name, keyVaultUrl, identity }' }
-  identity.role_assignments:
-    terraform_avm:
-      module: Azure/avm-res-app-containerapp/azurerm
-      attribute: 'role_assignments.<key> = { role_definition_id_or_name, principal_id }'
-    terraform:
-      attribute: 'azurerm_role_assignment = { scope, role_definition_name, principal_id }'
-      note: 'one per entry, scope = the app''s id (source: azurerm 5.12 schema)'
-    bicep_avm:
-      module: avm/res/app/container-app
-      attribute: 'roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }'
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { principalId, roleDefinitionId, principalType }'
-      note: 'one per entry, scope the app; roleDefinitionId is the role''s id, not its name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:

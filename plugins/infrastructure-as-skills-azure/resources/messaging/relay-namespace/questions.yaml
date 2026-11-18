@@ -14,7 +14,7 @@ boundaries:
   - "Does not create private DNS zones - shared infrastructure, owned by a pattern or the platform (`privatelink.servicebus.windows.net`, shared with Service Bus and Event Hubs)."
   - "Does not create the Log Analytics workspace it routes diagnostics to."
   - "Does not create or run the listeners: a hybrid connection is a rendezvous point, and the process on the other side (an on-premises service, a Hybrid Connection Manager beside an App Service) is deployed by its owner. The App Service side of a hybrid connection (`Microsoft.Web/sites/hybridConnectionNamespaces/relays`) belongs to the web app's set."
-  - "Does not grant the listeners and senders their roles - that is wiring between resources, owned by a pattern. It records the namespace's own role assignments in `role_assignments`."
+  - "Does not decide the roles on this resource. A role is a `wiring.role_assignments` entry of the spec with this resource as `to`; which roles the service has is in `notes.md`, *Roles*."
   - "Does not render authorization rules or connection strings. The root rule the service creates by itself is left alone and never read; a listener or sender that cannot use Entra ID is a named departure and an `open:` entry, never a key in a template."
   - "Has one tier (Standard) and no capacity knob, no managed identity, no customer-managed key, no zone-redundancy or TLS setting: the type exposes none. `key_management: customer_managed` is recorded as not applicable on this resource."
   - "The resource lock follows `deployment.resource_lock`, which lists messaging namespaces; it is not asked again here."
@@ -137,13 +137,13 @@ groups:
           de: "Zugriffsschlüssel und Verbindungszeichenfolgen sind {value}."
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
-          allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
-        accepts: [disabled, allowed_where_unavoidable]
-        answer: { deployment: local_auth }
+          enabled: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: enabled } }
         forced_when: >
           The type has no switch: the service creates `RootManageSharedAccessKey` with every
           namespace and nothing in the API turns SAS off. `disabled` is therefore recorded as
-          `forced` to `allowed_where_unavoidable` with the resource type as forced_by, and
+          `forced` to `enabled` with the resource type as forced_by, and
           what the posture still buys is kept: no authorization rule is rendered beyond the
           one the service creates, no key is read, output or placed in a setting, and
           listeners and senders hold `Azure Relay Listener` and `Azure Relay Sender` on the
@@ -224,28 +224,6 @@ groups:
           is not an allowlist and is rejected by the guardrails; a single address takes
           `/32`. The rule set has no virtual-network rules; a caller inside Azure uses the
           private endpoint.
-
-  - id: identity
-    title: Identity and access
-    questions:
-      - id: role_assignments
-        ask:
-          en: "Who needs which role on this namespace?"
-          de: "Wer braucht welche Rolle auf diesem Namespace?"
-        type: list
-        plain:
-          en: "Access rights on the namespace granted to: {value}."
-          de: "Zugriffsrechte vergeben an: {value}."
-        default: []
-        per_environment: true
-        why: >
-          Data-plane access is granted by role, never by key. A listener holds `Azure Relay
-          Listener`, a sender `Azure Relay Sender`, each scoped to the hybrid connection it
-          uses, never the subscription; `Azure Relay Owner` is for the deploying principal.
-          A pattern normally fills this from the two sides it knows about and grants a
-          consumer's role in the pattern, not here. An on-premises listener is a service
-          principal or a managed identity with Azure Arc; one that has neither is the named
-          departure to a SAS rule on that connection.
 
   - id: observability
     title: Observability

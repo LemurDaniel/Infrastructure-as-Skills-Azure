@@ -42,14 +42,3 @@ decisions:
     bicep:
       attribute: properties.metadata
       format: { expr: "toObject({value}, kv => split(kv, '=')[0], kv => split(kv, '=')[1])" }
-
-  # ----------------------------------------------------------------- identity
-  identity.role_assignments:
-    terraform_avm:
-      attribute: 'queues.<key>.role_assignments.<key> = { role_definition_id_or_name, principal_id, principal_type }'
-      note: scoped to the queue
-    terraform: { attribute: azurerm_role_assignment, note: 'scope = azurerm_storage_queue.<k>.id, the Resource Manager id in 5.x' }
-    bicep_avm: { attribute: 'queueServices.queues[].roleAssignments[] = { principalId, roleDefinitionIdOrName, principalType }' }
-    bicep:
-      attribute: 'Microsoft.Authorization/roleAssignments properties = { roleDefinitionId, principalId, principalType }'
-      note: 'an extension resource, scope = the queue (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'

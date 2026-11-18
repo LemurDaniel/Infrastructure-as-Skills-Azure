@@ -90,7 +90,7 @@ module mysql 'br/public:avm/res/db-for-my-sql/flexible-server:0.11.1' = {
       }
     ]
 
-    // decision: mysql-flexible-server.security.minimum_tls_version / password_authentication_disabled
+    // decision: mysql-flexible-server.security.min_tls_version / password_authentication_disabled
     // decision: mysql-flexible-server.observability.audit_logging
     configurations: [
       { name: 'aad_auth_only', source: 'user-override', value: 'ON' }

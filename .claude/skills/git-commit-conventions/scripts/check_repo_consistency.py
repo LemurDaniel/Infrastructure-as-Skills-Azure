@@ -28,6 +28,8 @@ plugin repo whose content is Markdown and YAML:
      there and claude plugin validate warns about it. Every tracked
      infra-spec.yaml is in the canonical form write_spec.py lays out.
   8. Relative Markdown links resolve, and no tracked path contains a space.
+  9. naming.default.yaml equals the LemurDaniel/naming provider's default
+     convention, when that repository is checked out beside this one.
   9. `claude plugin validate` on the plugin and on the marketplace. It is the
      only check that reads the manifest the way the loader does. If the CLI
      cannot be found it warns rather than passing quietly.
@@ -458,6 +460,46 @@ def main():
                 say(f"         {rel(repo, s)}", 'gray')
             errors.append('A CLAUDE.md in the plugin is not loaded as context and claude plugin validate warns about it. Instructions that must reach Claude belong in a skill; repo guidance belongs in the root CLAUDE.md.')
 
+    # --- 7a. patterns are data: routed, never skills, never declared ----------
+    # A pattern is reached through patterns/routing.md from iac-authoring. A SKILL.md there
+    # would make each pattern a skill and spend the listing budget; a declared ./patterns/
+    # would scan for skills that must not exist. What a pattern says is check_pattern.py's.
+    patterns_root = os.path.join(plugin_root, 'patterns')
+    if os.path.isdir(patterns_root):
+        pattern_issues = []
+        for s in find_files(patterns_root, 'SKILL.md'):
+            pattern_issues.append(f"{rel(repo, s)} - a pattern is a pattern.yaml, never a skill")
+        try:
+            declared_paths = [re.sub(r'/$', '', re.sub(r'^\./', '', d))
+                              for d in json.loads(read(os.path.join(plugin_root, '.claude-plugin', 'plugin.json'))).get('skills', [])]
+        except (OSError, json.JSONDecodeError):
+            declared_paths = []
+        if 'patterns' in declared_paths:
+            pattern_issues.append('plugin.json declares ./patterns/ as a skills path - patterns are not skills')
+        routing = os.path.join(patterns_root, 'routing.md')
+        routing_body = read(routing) if os.path.isfile(routing) else ''
+        if not routing_body:
+            pattern_issues.append('patterns/routing.md is missing - no pattern is reachable')
+        pattern_dirs = sorted(d for d in os.listdir(patterns_root) if os.path.isdir(os.path.join(patterns_root, d)))
+        for d in pattern_dirs:
+            if not os.path.isfile(os.path.join(patterns_root, d, 'pattern.yaml')):
+                pattern_issues.append(f"patterns/{d}/ holds no pattern.yaml")
+            elif f"{d}/pattern.yaml" not in routing_body:
+                pattern_issues.append(f"patterns/routing.md has no row for {d}/pattern.yaml")
+        for target in re.findall(r'`([a-z0-9-]+)/pattern\.yaml`', routing_body):
+            if target not in pattern_dirs:
+                pattern_issues.append(f"patterns/routing.md routes to {target}/pattern.yaml, which does not exist")
+        entry = os.path.join(plugin_root, 'core', 'iac-authoring', 'SKILL.md')
+        if os.path.isfile(entry) and 'patterns/routing.md' not in read(entry):
+            pattern_issues.append('core/iac-authoring/SKILL.md never links patterns/routing.md - every pattern is unreachable')
+        if not pattern_issues:
+            say(f"[ ok ] patterns - {len(pattern_dirs)} pattern(s), each routed, none a skill", 'green')
+        else:
+            say(f"[fail] patterns - {len(pattern_issues)} issue(s)", 'red')
+            for i in pattern_issues:
+                say(f"         {i}", 'gray')
+            errors.append('A pattern is data under patterns/<id>/pattern.yaml, routed from patterns/routing.md and linked from iac-authoring. Run check_pattern.py for what it says.')
+
     # --- 7b. the plugin never refers to examples/ --------------------------
     if os.path.isdir(plugin_root):
         hits = []
@@ -489,6 +531,24 @@ def main():
             say('[fail] the CLAUDE.md block changed without a new rev', 'red')
             say(f"         {(p.stdout or p.stderr).strip()}", 'gray')
             errors.append('A customer repository only updates its CLAUDE.md section when rev rises. Bump rev in references/claude-md-block.md and write the line --verify-lock names into claude-md-block.lock.')
+
+    # --- 7d. the convention is the naming provider's own default ----------
+    # The provider's repository is only there on the owner's machine, beside this one; a
+    # cloud session has no sibling checkout, so the comparison is skipped, not failed.
+    convention_file = os.path.join(plugin_root, 'core', 'iac-rendering', 'references', 'naming.default.yaml')
+    provider_convention = os.path.join(os.path.dirname(repo), 'terraform-provider-naming', 'internal',
+                                       'schemaengine', 'convention', 'default.naming.yaml')
+    if os.path.isfile(convention_file) and os.path.isfile(provider_convention):
+        ours = read(convention_file).replace('\r\n', '\n')
+        theirs = read(provider_convention).replace('\r\n', '\n')
+        if ours == theirs:
+            say("[ ok ] naming.default.yaml is the naming provider's default convention", 'green')
+        else:
+            say("[fail] naming.default.yaml differs from the naming provider's default convention", 'red')
+            say(f"         {provider_convention}", 'gray')
+            errors.append("The plugin's convention is the provider's bundled default, byte for byte. Change it in terraform-provider-naming first, release it, then copy the file here and pin that version in naming.md.")
+    else:
+        say('[info] terraform-provider-naming not checked out beside this repo - convention not compared', 'darkyellow')
 
     # --- 7c2. every resource set has a resource group role in each scheme ---
     roles_file = os.path.join(plugin_root, 'core', 'iac-rendering', 'references', 'resource-group-roles.yaml')

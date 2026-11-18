@@ -55,7 +55,7 @@ module "key" {
     notify_before_expiry = "P30D"
   }
 
-  # decision: key-vault-key.identity.role_assignments
+  # decision: wiring.role_assignments
   role_assignments = {
     storage = {
       role_definition_id_or_name = "Key Vault Crypto Service Encryption User"

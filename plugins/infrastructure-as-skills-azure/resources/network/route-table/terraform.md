@@ -28,7 +28,7 @@ Not decisions of this set:
 
 | Decision | Input | Note |
 |---|---|---|
-| (the table) | `name` through the naming provider | `subname` carries the subnet role: `rt-gwc-dev-telemetry-spoke-01` |
+| (the table) | `name` through the naming provider | `purpose` carries the subnet role: `rt-gwc-dev-telemetry-spoke-01` |
 | `deployment.module_telemetry` | `enable_telemetry` | |
 | `context.tags` | `tags = local.tags` | |
 
@@ -42,7 +42,7 @@ network resources).
 ```hcl
 data "naming_name" "route_table" {
   resource   = "Azure::Microsoft.Network/routeTables"
-  parameters = { subname = "spoke" } # the subnet role
+  parameters = { purpose = "spoke" } # the subnet role
 }
 
 module "route_table" {

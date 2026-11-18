@@ -19,6 +19,14 @@ Entra administrators (the module orders them), then databases and configurations
 step (SQL, as a member of the administrator group), then the consumers. For VNet integration the delegated
 subnet and the private DNS zone link come first. The workspace before the diagnostic setting.
 
+## Roles
+
+A role on the server is a `wiring.role_assignments` entry with it as `to`. It is Azure RBAC
+on the server - the control plane: scaling, restarting, changing parameters. It is separate
+from the database roles on purpose (`database_roles` are rights inside the database, created
+by a statement). Usually the deploying principal holds these alone, and the spec then has no
+entry for the server.
+
 ## Pitfalls
 
 **Two permission systems.** Azure RBAC governs the server; inside it, roles are SQL. With password

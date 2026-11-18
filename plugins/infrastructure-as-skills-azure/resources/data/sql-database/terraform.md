@@ -43,7 +43,7 @@ module "sql" {
   resource_group_name = var.resource_group_name
   server_version      = "12.0"
 
-  # decision: sql-database.security.local_authentication_disabled / identity.entra_admin
+  # decision: sql-database.security.local_auth / identity.entra_admin
   # Entra-only: no administrator_login, no password
   azuread_administrator = {
     azuread_authentication_only = true

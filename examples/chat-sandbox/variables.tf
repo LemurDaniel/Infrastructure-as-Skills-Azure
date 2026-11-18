@@ -83,7 +83,7 @@ variable "model_deployments" {
   }))
 }
 
-# --- the per-stage role assignments of the spec (resources.<resource>.identity.role_assignments)
+# --- the per-stage role assignments of the spec (wiring.role_assignments)
 variable "role_assignments" {
   description = "Who needs which role on which resource, per stage: resource key of the spec => list of { principal (a resource key with a managed identity), role (by name) }."
   type = map(list(object({

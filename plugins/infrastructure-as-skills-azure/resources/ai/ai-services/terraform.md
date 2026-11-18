@@ -69,7 +69,7 @@ module "speech" {
   # decision: ai-services.identity.managed_identity - none; `{ system_assigned = true }` once it reaches storage or search
   managed_identities = {}
 
-  # decision: ai-services.security.local_authentication_disabled - inverse input
+  # decision: ai-services.security.local_auth - `disabled` is false on the input
   local_auth_enabled = false
 
   role_assignments = {

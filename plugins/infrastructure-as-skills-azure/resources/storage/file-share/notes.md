@@ -13,6 +13,15 @@
 The account first (with large file shares and identity-based authentication where needed), then
 the share, then its role assignments, then the machines or apps that mount it.
 
+## Roles
+
+A role on a share is a `wiring.role_assignments` entry with this share resource as `to` -
+narrower than one on the account. The narrow roles are `Storage File Data SMB Share Reader`
+to read, `Storage File Data SMB Share Contributor` to read and write, `Storage File Data SMB
+Share Elevated Contributor` to also change permissions. They apply to SMB with
+identity-based authentication; an NFS share has no role-based access. Never the
+subscription.
+
 ## Pitfalls
 
 **With shared keys off, a share cannot be mounted the usual way.** The account-key mount command
