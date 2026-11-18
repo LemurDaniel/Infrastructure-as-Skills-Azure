@@ -1,0 +1,8 @@
+{
+  "version": "0.8.0",
+  "model": "haiku",
+  "trigger": "release",
+  "pr": 55,
+  "commit": "b36b7aa0ebed",
+  "id": "2026-11-18T15-01-21-293Z"
+}

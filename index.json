@@ -2037,6 +2037,254 @@
      "delta": null
     }
    ]
+  },
+  {
+   "id": "2026-11-18T15-01-21-293Z",
+   "version": "0.8.0",
+   "model": "haiku",
+   "trigger": "release",
+   "pr": 55,
+   "commit": "b36b7aa0ebed",
+   "startedAt": "2026-11-18T15:01:21.293Z",
+   "costUsd": 1.7146536600000002,
+   "durationSeconds": 286,
+   "partial": false,
+   "runsPerCase": 2,
+   "cases": [
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-first-question",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "chat-rag-pattern",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "integration-nothing-invented",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "microservices-shared-environment",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "webapp-departure-wins",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "app-code-untouched",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-rerender-keeps-names",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-secret-placeholder-once",
+     "passRate": 0.25,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "terraform-code-structure",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "terraform-existing-reference",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "platform-workspace-reference",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 0,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "claude-md-section-replaced",
+     "passRate": 0.25,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "plugin-newer-halts",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ],
+   "note": "Full suite on b36b7aa, before #56-#59; not repeated after them."
+  },
+  {
+   "id": "2026-11-18T20-16-45-786Z",
+   "version": "0.8.0",
+   "model": "sonnet",
+   "trigger": "release",
+   "pr": 55,
+   "commit": "15b56ef26e75",
+   "startedAt": "2026-11-18T20:16:45.786Z",
+   "costUsd": 44.233125,
+   "durationSeconds": 648,
+   "partial": false,
+   "runsPerCase": 2,
+   "cases": [
+    {
+     "name": "diagram-no-invented-lines",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-first-question",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "language-en-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "chat-rag-pattern",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "integration-nothing-invented",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "microservices-shared-environment",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "webapp-departure-wins",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "app-code-untouched",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-rerender-keeps-names",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "bicep-secret-placeholder-once",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "terraform-code-structure",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "terraform-existing-reference",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "platform-workspace-reference",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "requirements-stated",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "vague-public-dev",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "claude-md-section-replaced",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "plugin-newer-halts",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    },
+    {
+     "name": "trigger-workload-request",
+     "passRate": 1,
+     "passRateWithout": null,
+     "delta": null
+    }
+   ],
+   "note": "Composed, not one run: twelve cases from the full suite on b36b7aa (which stopped at its cost ceiling); webapp-departure-wins, vague-public-dev, platform-workspace-reference, plugin-newer-halts and trigger-workload-request from a re-test on 909e397; language-en-request from a re-test on the branch of #59. The pattern cases ran four times in the full suite, twice since #57."
   }
  ]
 }
