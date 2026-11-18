@@ -386,10 +386,6 @@ resources:
       isolation_scope:
         value: None
         source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
 
   # The drift watcher reaches the AVM sources on the internet, so it gets its own identity: it
   # shares no role with the fuzz agent (which runs plugin code) or the dashboard (which holds the
@@ -409,10 +405,6 @@ resources:
       isolation_scope:
         value: None
         source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
 
   # The fuzz agent runs plugin code and calls no model: it gets its own identity with the image
   # and data roles only, so it shares nothing with the drift watcher, the tuner or the dashboard.
@@ -431,10 +423,6 @@ resources:
       isolation_scope:
         value: None
         source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
 
   # The tuner reads the fuzz report, lets the Foundry model draft a layout change and pushes it to
   # the tuning branch: it holds the one GitHub token for that and shares no role with the other apps.
@@ -452,10 +440,6 @@ resources:
         source: default
       isolation_scope:
         value: None
-        source: default
-      role_assignments:
-        value:
-          production: []
         source: default
 
   container-registry:
@@ -504,10 +488,6 @@ resources:
     identity:
       managed_identity:
         value: none
-        source: default
-      role_assignments:
-        value:
-          production: []
         source: default
     security:
       admin_enabled:
@@ -580,10 +560,6 @@ resources:
       managed_identity:
         value: none
         source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
     security:
       local_auth:
         value: disabled
@@ -626,10 +602,6 @@ resources:
     identity:
       managed_identity:
         value: none
-        source: default
-      role_assignments:
-        value:
-          production: []
         source: default
     security:
       local_auth:
@@ -1184,11 +1156,6 @@ resources:
       encryption_scope_locked:
         value: false
         source: default
-    identity:
-      role_assignments:
-        value:
-          production: []
-        source: default
 
   key-vault:
     meta:
@@ -1219,11 +1186,6 @@ resources:
         source: deployment
       network_acl_bypass:
         value: None
-        source: default
-    identity:
-      role_assignments:
-        value:
-          production: []
         source: default
     security:
       enabled_for_services:

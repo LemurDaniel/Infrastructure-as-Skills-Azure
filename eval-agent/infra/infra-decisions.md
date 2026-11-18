@@ -62,18 +62,15 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
   - Ein kostenpflichtiger DDoS-Schutzplan wird nicht genutzt; Azures Basisschutz gilt ohnehin.
 - **Azure Container Registry**
   - Die Registry hat keine eigene Identität.
-  - Zugriffsrechte auf die Registry vergeben an: keine.
   - Das gemeinsame Admin-Konto ist abgeschaltet; der Zugriff läuft über Firmenkonten.
   - Das Herunterladen von Images ohne Anmeldung ist nicht erlaubt.
   - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - **Azure AI Foundry (AI Services account with projects and model deployments)**
   - Das Konto hat keine eigene Identität.
-  - Zugriffsrechte auf das Konto vergeben an: keine.
   - Die Anmeldung mit Kontoschlüsseln ist abgeschaltet; der Zugriff läuft über Firmenkonten.
   - Verschlüsselungsschlüssel sind von Azure verwaltet: verschlüsselt, rotiert, kein Aufwand bei euch.
 - **Azure Storage Account**
   - Der Speicher hat keine eigene Identität, um andere Dienste zu erreichen.
-  - Zugriffsrechte vergeben an: keine.
   - Zugriff mit einem geteilten Schlüssel ist nicht möglich; der Zugriff läuft über Firmenkonten.
   - Verbindungen müssen mindestens TLS 1.2-Verschlüsselung nutzen.
   - Unverschlüsselte Verbindungen werden abgewiesen.
@@ -92,10 +89,7 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
   - Sie nutzt die Identitäten user-assigned-identity__drift. — weil: `resources.app-service__drift.identity.managed_identity` (drift)
   - Sie nutzt die Identitäten user-assigned-identity__fuzz. — weil: `resources.app-service__fuzz.identity.managed_identity` (fuzz)
   - Sie nutzt die Identitäten user-assigned-identity__tune. — weil: `resources.app-service__tune.identity.managed_identity` (tune)
-- **Azure Storage blob container**
-  - Zugriffsrechte vergeben an: keine.
 - **Azure Key Vault**
-  - Zugriffsrechte auf den Tresor vergeben an: keine.
   - Plattformdienste, die aus dem Tresor lesen dürfen: keine (leer: keine).
 
 ### Azure Virtual Network
@@ -146,28 +140,24 @@ Die Sicherheitsvorgaben aller Teile an einer Stelle. Sie wurden nicht gefragt un
 - Diese Identität gibt es für app-runtime.
 - Externe Systeme, die als diese Identität handeln dürfen: keine (leer: keine).
 - Die Identität kann von Ressourcen in jeder Region aus genutzt werden.
-- Rechte an der Identität selbst vergeben an: keine.
 
 ### Azure user-assigned managed identity (drift)
 
 - Diese Identität gibt es für app-runtime.
 - Externe Systeme, die als diese Identität handeln dürfen: keine (leer: keine).
 - Die Identität kann von Ressourcen in jeder Region aus genutzt werden.
-- Rechte an der Identität selbst vergeben an: keine.
 
 ### Azure user-assigned managed identity (fuzz)
 
 - Diese Identität gibt es für app-runtime.
 - Externe Systeme, die als diese Identität handeln dürfen: keine (leer: keine).
 - Die Identität kann von Ressourcen in jeder Region aus genutzt werden.
-- Rechte an der Identität selbst vergeben an: keine.
 
 ### Azure user-assigned managed identity (tune)
 
 - Diese Identität gibt es für app-runtime.
 - Externe Systeme, die als diese Identität handeln dürfen: keine (leer: keine).
 - Die Identität kann von Ressourcen in jeder Region aus genutzt werden.
-- Rechte an der Identität selbst vergeben an: keine.
 
 ### Azure Container Registry
 
@@ -444,22 +434,18 @@ Die Verbindungen zwischen den Teilen, die Rechte, die ein Teil auf einem anderen
 | `user-assigned-identity__dashboard.identity.purpose` | app-runtime | Regel |
 | `user-assigned-identity__dashboard.identity.federated_credentials` | [] | Regel |
 | `user-assigned-identity__dashboard.identity.isolation_scope` | None | Regel |
-| `user-assigned-identity__dashboard.identity.role_assignments` | {"production": []} | Regel |
 | `user-assigned-identity__drift.meta.purpose` | Zugriff des Drift-Watchers ohne Schlüssel | eure Beschreibung |
 | `user-assigned-identity__drift.identity.purpose` | app-runtime | Regel |
 | `user-assigned-identity__drift.identity.federated_credentials` | [] | Regel |
 | `user-assigned-identity__drift.identity.isolation_scope` | None | Regel |
-| `user-assigned-identity__drift.identity.role_assignments` | {"production": []} | Regel |
 | `user-assigned-identity__fuzz.meta.purpose` | Zugriff des Fuzz-Agents ohne Schlüssel | eure Beschreibung |
 | `user-assigned-identity__fuzz.identity.purpose` | app-runtime | Regel |
 | `user-assigned-identity__fuzz.identity.federated_credentials` | [] | Regel |
 | `user-assigned-identity__fuzz.identity.isolation_scope` | None | Regel |
-| `user-assigned-identity__fuzz.identity.role_assignments` | {"production": []} | Regel |
 | `user-assigned-identity__tune.meta.purpose` | Zugriff des Tuners ohne Schlüssel | eure Beschreibung |
 | `user-assigned-identity__tune.identity.purpose` | app-runtime | Regel |
 | `user-assigned-identity__tune.identity.federated_credentials` | [] | Regel |
 | `user-assigned-identity__tune.identity.isolation_scope` | None | Regel |
-| `user-assigned-identity__tune.identity.role_assignments` | {"production": []} | Regel |
 | `container-registry.meta.purpose` | Images aller vier Apps | eure Beschreibung |
 | `container-registry.registry.sku` | Premium | erzwungen |
 | `container-registry.registry.zone_redundant` | false | abgeleitet aus eurer Antwort |
@@ -471,7 +457,6 @@ Die Verbindungen zwischen den Teilen, die Rechte, die ein Teil auf einem anderen
 | `container-registry.networking.export_policy_enabled` | false | Regel |
 | `container-registry.networking.image_push_path` | pipeline_opens_registry | eure Beschreibung |
 | `container-registry.identity.managed_identity` | none | Regel |
-| `container-registry.identity.role_assignments` | {"production": []} | Regel |
 | `container-registry.security.admin_enabled` | false | übernommen |
 | `container-registry.security.anonymous_pull_enabled` | false | Regel |
 | `container-registry.security.key_management` | platform_managed | übernommen |
@@ -491,7 +476,6 @@ Die Verbindungen zwischen den Teilen, die Rechte, die ein Teil auf einem anderen
 | `foundry.networking.private_endpoint_subnet` | pe | übernommen |
 | `foundry.networking.restrict_outbound` | true | Regel |
 | `foundry.identity.managed_identity` | none | Regel |
-| `foundry.identity.role_assignments` | {"production": []} | Regel |
 | `foundry.security.local_auth` | disabled | übernommen |
 | `foundry.security.key_management` | platform_managed | übernommen |
 | `foundry.observability.diagnostic_workspace` | log-analytics-workspace | übernommen |
@@ -503,7 +487,6 @@ Die Verbindungen zwischen den Teilen, die Rechte, die ein Teil auf einem anderen
 | `storage-account.networking.private_endpoint_subresources` | ["blob"] | Regel |
 | `storage-account.networking.allow_azure_services_bypass` | true | Regel |
 | `storage-account.identity.managed_identity` | none | Regel |
-| `storage-account.identity.role_assignments` | {"production": []} | Regel |
 | `storage-account.security.local_auth` | disabled | übernommen |
 | `storage-account.security.min_tls_version` | 1.2 | Regel |
 | `storage-account.security.https_traffic_only` | true | Regel |
@@ -624,7 +607,6 @@ Die Verbindungen zwischen den Teilen, die Rechte, die ein Teil auf einem anderen
 | `blob-container.containers.public_access` | None | Regel |
 | `blob-container.containers.immutable_storage` | false | abgeleitet aus eurer Antwort |
 | `blob-container.containers.encryption_scope_locked` | false | Regel |
-| `blob-container.identity.role_assignments` | {"production": []} | Regel |
 | `key-vault.meta.purpose` | Anmelde-Secret des Dashboards, GitHub-Token von Drift-Watcher und Tuner | eure Beschreibung |
 | `key-vault.vault.sku` | standard | Regel |
 | `key-vault.vault.purge_protection` | true | Regel |
@@ -633,7 +615,6 @@ Die Verbindungen zwischen den Teilen, die Rechte, die ein Teil auf einem anderen
 | `key-vault.networking.public_network_access` | disabled | übernommen |
 | `key-vault.networking.private_endpoint_subnet` | pe | übernommen |
 | `key-vault.networking.network_acl_bypass` | None | Regel |
-| `key-vault.identity.role_assignments` | {"production": []} | Regel |
 | `key-vault.security.enabled_for_services` | [] | Regel |
 | `key-vault.security.secret_placeholders` | ["entra-client-secret", "github-drift-token", "github-tune-token"] | eure Abweichung |
 | `key-vault.keys.key_management` | platform_managed | übernommen |

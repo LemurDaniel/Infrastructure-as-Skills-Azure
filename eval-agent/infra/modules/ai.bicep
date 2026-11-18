@@ -154,7 +154,7 @@ resource diagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' 
   }
 }
 
-// decision: foundry.identity.role_assignments
+// decision: wiring.role_assignments
 resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
   for ra in roleAssignments: {
     name: guid(account.id, ra.principalId, ra.roleDefinitionId)

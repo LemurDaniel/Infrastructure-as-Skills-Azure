@@ -50,7 +50,7 @@ run "identity" {
     error_message = "System-assigned identity."
   }
 
-  # decision: storage-account.identity.role_assignments
+  # decision: wiring.role_assignments
   assert {
     condition     = length([for k in keys(azurerm_role_assignment.this) : k if startswith(k, "storage-account/")]) == 2 && azurerm_role_assignment.this["storage-account/app-service/Storage Blob Data Contributor"].role_definition_name == "Storage Blob Data Contributor" && azurerm_role_assignment.this["storage-account/search-service/Storage Blob Data Reader"].role_definition_name == "Storage Blob Data Reader"
     error_message = "The app writes (Storage Blob Data Contributor), the search service reads (Storage Blob Data Reader); data-plane roles, nothing else."

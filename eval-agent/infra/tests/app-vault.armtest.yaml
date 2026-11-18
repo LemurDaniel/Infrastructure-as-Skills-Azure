@@ -621,7 +621,7 @@
   path: resources.vault.properties.template.resources.vault.properties.networkAcls.bypass
   equals: None
 
-- decision: key-vault.identity.role_assignments
+- decision: wiring.role_assignments
   stage: production
   path: parameters.vaultRoleAssignments.value
   equals: []

@@ -89,15 +89,12 @@ The security baseline of every part in one place. None of it was asked and it is
 - **Azure Virtual Network**
   - A paid DDoS protection plan is not used; Azure's basic protection applies either way.
 - **Azure Application Insights (workspace-based)**
-  - Access rights on the component granted to: user-assigned-identity__connector (Monitoring Metrics Publisher).
   - Sending telemetry with only a key is switched off; applications sign in with company identities.
 - **Azure Key Vault**
-  - Access rights on the vault granted to: user-assigned-identity__web (Key Vault Secrets User), user-assigned-identity__connector (Key Vault Secrets User).
   - Platform services allowed to read from the vault: none (empty: none).
   - Empty slots are created for the secrets entra-client-secret; their values are entered afterwards by hand or by the workload.
 - **Azure Storage Account**
   - The storage has its own identity for reaching other services.
-  - Access rights granted to: user-assigned-identity__web (Storage Blob Data Contributor), search-service (Storage Blob Data Reader). (uploads)
   - Access with a shared key is not possible; access goes through company accounts.
   - Connections must use at least TLS 1.2 encryption.
   - Unencrypted connections are refused.
@@ -105,27 +102,21 @@ The security baseline of every part in one place. None of it was asked and it is
   - A second encryption layer below the service is on.
   - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
   - File transfer via SFTP is off.
-  - Access rights granted to: user-assigned-identity__connector (Storage Blob Data Owner), user-assigned-identity__connector (Storage Table Data Contributor), user-assigned-identity__connector (Storage Queue Data Contributor). (host)
 - **Azure Cosmos DB account (API for NoSQL)**
   - The account has no identity of its own.
-  - Access to the data itself granted to: user-assigned-identity__web (Cosmos DB Built-in Data Contributor).
-  - Management rights on the account granted to: none.
   - Signing in with account keys is switched off; access goes through company accounts.
   - Creating or changing databases, containers and throughput with account keys is switched off.
   - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - **Azure AI Foundry (AI Services account with projects and model deployments)**
   - The account has its own identity.
-  - Access rights on the account granted to: user-assigned-identity__web (Cognitive Services OpenAI User), user-assigned-identity__connector (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User).
   - Signing in with account keys is switched off; access goes through company accounts.
   - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - **Azure AI Search service**
   - The search service has its own identity.
-  - Access rights on the search service granted to: user-assigned-identity__web (Search Index Data Reader), user-assigned-identity__connector (Search Index Data Contributor).
   - Signing in with API keys is switched off; access goes through company accounts.
   - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - **Azure Container Registry**
   - The registry has no identity of its own.
-  - Access rights on the registry granted to: user-assigned-identity__runner (AcrPull).
   - The shared admin account is switched off; access goes through company accounts.
   - Pulling images without signing in is not allowed.
   - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
@@ -133,11 +124,9 @@ The security baseline of every part in one place. None of it was asked and it is
   - The app has a shared, separately managed identity for reaching other services.
   - It uses the identity user-assigned-identity__runner.
   - The app reads the secrets none from the key vault.
-  - Management rights on the app granted to: none.
 - **Azure Functions (function app on Flex Consumption or Elastic Premium)**
   - The function app has a shared, separately managed identity for reaching other services.
   - It uses the identity user-assigned-identity__connector.
-  - Management rights on the function app granted to: none.
   - Unencrypted connections are redirected to the encrypted address.
   - Connections must use at least TLS 1.2 encryption.
   - Deploying with a user name and password is not possible; deployments run through company accounts.
@@ -231,21 +220,18 @@ The security baseline of every part in one place. None of it was asked and it is
 - This identity exists for the web app and the MCP server, to reach models, search, data and secrets.
 - External systems trusted to act as this identity: none (empty: none).
 - The identity can be used from resources in any region.
-- Rights on the identity itself granted to: none.
 
 ### Azure user-assigned managed identity (connector)
 
 - This identity exists for the document connector function, to index documents and keep its own state.
 - External systems trusted to act as this identity: none (empty: none).
 - The identity can be used from resources in any region.
-- Rights on the identity itself granted to: none.
 
 ### Azure user-assigned managed identity (runner)
 
 - This identity exists for the code interpreter container app, to pull its image.
 - External systems trusted to act as this identity: none (empty: none).
 - The identity can be used from resources in any region.
-- Rights on the identity itself granted to: none.
 
 ### Azure Storage Account (uploads)
 
@@ -445,6 +431,24 @@ The connections between the parts, the rights each one holds on another, and whe
 - Connector to the document store → Application telemetry
 - Code interpreter → Images of all apps: pulls its image
 
+**Rights**
+
+- Connector function holds the role *Monitoring Metrics Publisher* on Application telemetry
+- Web app and MCP server holds the role *Key Vault Secrets User* on Secrets
+- Connector function holds the role *Key Vault Secrets User* on Secrets
+- Web app and MCP server holds the role *Storage Blob Data Contributor* on Uploaded files
+- Search; indexes the uploads, embeds with the models holds the role *Storage Blob Data Reader* on Uploaded files
+- Connector function holds the role *Storage Blob Data Owner* on State of the connector function
+- Connector function holds the role *Storage Table Data Contributor* on State of the connector function
+- Connector function holds the role *Storage Queue Data Contributor* on State of the connector function
+- Web app and MCP server holds the role *Cosmos DB Built-in Data Contributor* on Conversation history
+- Web app and MCP server holds the role *Cognitive Services OpenAI User* on Chat and embedding models
+- Connector function holds the role *Cognitive Services OpenAI User* on Chat and embedding models
+- Search; indexes the uploads, embeds with the models holds the role *Cognitive Services OpenAI User* on Chat and embedding models
+- Web app and MCP server holds the role *Search Index Data Reader* on Search; indexes the uploads, embeds with the models
+- Connector function holds the role *Search Index Data Contributor* on Search; indexes the uploads, embeds with the models
+- Code interpreter holds the role *AcrPull* on Images of all apps
+
 ## Appendix: every decision
 
 | Key | Value | Source |
@@ -455,7 +459,7 @@ The connections between the parts, the rights each one holds on another, and whe
 | `deployment.resource_group_layout` | split | your description |
 | `deployment.resource_groups_created` | ["data", "application", "observability", "security"] | your description |
 | `deployment.resource_group_lock` | production | rule |
-| `deployment.deployer_roles` | [{"role": "Contributor", "scope": "subscription", "for": ["deployment.resource_groups_created"]}, {"role": "Role Based Access Control Administrator", "scope": "resource_group", "for": ["resources.application-insights.identity.role_assignments", "resources.key-vault.identity.role_assignments", "resources.storage-account__uploads.identity.role_assignments", "resources.storage-account__host.identity.role_assignments", "resources.foundry.identity.role_assignments", "resources.search-service.identity.role_assignments", "resources.container-registry.identity.role_assignments"]}, {"role": "Key Vault Secrets Officer", "scope": "key-vault", "for": ["resources.key-vault.security.secret_placeholders"]}] | forced |
+| `deployment.deployer_roles` | [{"role": "Contributor", "scope": "subscription", "for": ["deployment.resource_groups_created"]}, {"role": "Role Based Access Control Administrator", "scope": "resource_group", "for": ["wiring.role_assignments"]}, {"role": "Key Vault Secrets Officer", "scope": "key-vault", "for": ["resources.key-vault.security.secret_placeholders"]}] | forced |
 | `deployment.outage_impact` | disruptive | rule |
 | `deployment.data_loss_tolerance` | one_week | rule |
 | `deployment.data_access_pattern` | active | rule |
@@ -527,7 +531,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `application-insights.component.daily_cap_gb` | 0 | rule |
 | `application-insights.component.store_client_ip` | false | rule |
 | `application-insights.networking.public_network_access` | enabled | rule |
-| `application-insights.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__connector", "role": "Monitoring Metrics Publisher"}]} | your description |
 | `application-insights.security.local_auth` | disabled | inherited |
 | `key-vault.meta.purpose` | Secrets | your description |
 | `key-vault.vault.sku` | standard | rule |
@@ -537,7 +540,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `key-vault.networking.public_network_access` | disabled | inherited |
 | `key-vault.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `key-vault.networking.network_acl_bypass` | None | rule |
-| `key-vault.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Key Vault Secrets User"}, {"principal": "user-assigned-identity__connector", "role": "Key Vault Secrets User"}]} | your description |
 | `key-vault.security.enabled_for_services` | [] | rule |
 | `key-vault.security.secret_placeholders` | ["entra-client-secret"] | your description |
 | `key-vault.keys.key_management` | platform_managed | inherited |
@@ -548,24 +550,20 @@ The connections between the parts, the rights each one holds on another, and whe
 | `user-assigned-identity__web.identity.purpose` | the web app and the MCP server, to reach models, search, data and secrets | your description |
 | `user-assigned-identity__web.identity.federated_credentials` | [] | rule |
 | `user-assigned-identity__web.identity.isolation_scope` | None | rule |
-| `user-assigned-identity__web.identity.role_assignments` | {"production": []} | rule |
 | `user-assigned-identity__connector.meta.purpose` | Connector function | your description |
 | `user-assigned-identity__connector.identity.purpose` | the document connector function, to index documents and keep its own state | your description |
 | `user-assigned-identity__connector.identity.federated_credentials` | [] | rule |
 | `user-assigned-identity__connector.identity.isolation_scope` | None | rule |
-| `user-assigned-identity__connector.identity.role_assignments` | {"production": []} | rule |
 | `user-assigned-identity__runner.meta.purpose` | Code interpreter | your description |
 | `user-assigned-identity__runner.identity.purpose` | the code interpreter container app, to pull its image | your description |
 | `user-assigned-identity__runner.identity.federated_credentials` | [] | rule |
 | `user-assigned-identity__runner.identity.isolation_scope` | None | rule |
-| `user-assigned-identity__runner.identity.role_assignments` | {"production": []} | rule |
 | `storage-account__uploads.meta.purpose` | Uploaded files | your description |
 | `storage-account__uploads.networking.public_network_access` | disabled | inherited |
 | `storage-account__uploads.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `storage-account__uploads.networking.private_endpoint_subresources` | ["blob"] | rule |
 | `storage-account__uploads.networking.allow_azure_services_bypass` | true | rule |
 | `storage-account__uploads.identity.managed_identity` | system_assigned | rule |
-| `storage-account__uploads.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Storage Blob Data Contributor"}, {"principal": "search-service", "role": "Storage Blob Data Reader"}]} | your description |
 | `storage-account__uploads.security.local_auth` | disabled | inherited |
 | `storage-account__uploads.security.min_tls_version` | 1.2 | rule |
 | `storage-account__uploads.security.https_traffic_only` | true | rule |
@@ -591,7 +589,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `storage-account__host.networking.private_endpoint_subresources` | ["blob", "queue", "table"] | forced |
 | `storage-account__host.networking.allow_azure_services_bypass` | true | rule |
 | `storage-account__host.identity.managed_identity` | system_assigned | rule |
-| `storage-account__host.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__connector", "role": "Storage Blob Data Owner"}, {"principal": "user-assigned-identity__connector", "role": "Storage Table Data Contributor"}, {"principal": "user-assigned-identity__connector", "role": "Storage Queue Data Contributor"}]} | your description |
 | `storage-account__host.security.local_auth` | disabled | inherited |
 | `storage-account__host.security.min_tls_version` | 1.2 | rule |
 | `storage-account__host.security.https_traffic_only` | true | rule |
@@ -624,8 +621,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `cosmos-db.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `cosmos-db.networking.network_acl_bypass` | false | rule |
 | `cosmos-db.identity.managed_identity` | none | rule |
-| `cosmos-db.identity.data_plane_role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Cosmos DB Built-in Data Contributor", "scope": "account"}]} | your description |
-| `cosmos-db.identity.role_assignments` | {"production": []} | rule |
 | `cosmos-db.security.local_auth` | disabled | inherited |
 | `cosmos-db.security.key_based_metadata_writes` | true | inherited |
 | `cosmos-db.security.key_management` | platform_managed | inherited |
@@ -649,7 +644,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `foundry.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `foundry.networking.restrict_outbound` | true | rule |
 | `foundry.identity.managed_identity` | system_assigned | rule |
-| `foundry.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Cognitive Services OpenAI User"}, {"principal": "user-assigned-identity__connector", "role": "Cognitive Services OpenAI User"}, {"principal": "search-service", "role": "Cognitive Services OpenAI User"}]} | your description |
 | `foundry.security.local_auth` | disabled | inherited |
 | `foundry.security.key_management` | platform_managed | inherited |
 | `foundry.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
@@ -664,7 +658,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `search-service.networking.private_endpoint_subnet` | snet-endpoints | forced |
 | `search-service.networking.network_rule_bypass` | None | rule |
 | `search-service.identity.managed_identity` | system_assigned | rule |
-| `search-service.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__web", "role": "Search Index Data Reader"}, {"principal": "user-assigned-identity__connector", "role": "Search Index Data Contributor"}]} | your description |
 | `search-service.security.local_auth` | disabled | inherited |
 | `search-service.security.key_management` | platform_managed | inherited |
 | `search-service.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
@@ -680,7 +673,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `container-registry.networking.network_rule_bypass` | None | rule |
 | `container-registry.networking.export_policy_enabled` | false | rule |
 | `container-registry.identity.managed_identity` | none | rule |
-| `container-registry.identity.role_assignments` | {"production": [{"principal": "user-assigned-identity__runner", "role": "AcrPull"}]} | your description |
 | `container-registry.security.admin_enabled` | false | inherited |
 | `container-registry.security.anonymous_pull_enabled` | false | rule |
 | `container-registry.security.key_management` | platform_managed | inherited |
@@ -705,7 +697,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `container-apps.identity.managed_identity` | user_assigned | rule |
 | `container-apps.identity.user_assigned_identity_ids` | user-assigned-identity__runner | your description |
 | `container-apps.identity.secret_references` | {"production": []} | rule |
-| `container-apps.identity.role_assignments` | {"production": []} | rule |
 | `container-apps.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `container-apps.observability.diagnostic_categories` | ["ContainerAppConsoleLogs", "ContainerAppSystemLogs"] | rule |
 | `container-apps.observability.metrics_enabled` | true | rule |
@@ -727,7 +718,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `function-app.networking.vnet_route_all` | true | rule |
 | `function-app.identity.managed_identity` | user_assigned | rule |
 | `function-app.identity.user_assigned_identity_ids` | user-assigned-identity__connector | your description |
-| `function-app.identity.role_assignments` | {"production": []} | rule |
 | `function-app.security.https_only` | true | rule |
 | `function-app.security.min_tls_version` | 1.2 | rule |
 | `function-app.security.basic_auth_enabled` | false | inherited |
@@ -783,4 +773,5 @@ The connections between the parts, the rights each one holds on another, and whe
 | `app-service__mcp.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
 | `app-service__mcp.observability.diagnostic_categories` | ["AppServiceHTTPLogs", "AppServiceAppLogs", "AppServiceAuditLogs", "AppServiceIPSecAuditLogs", "AppServicePlatformLogs"] | rule |
 | `app-service__mcp.observability.metrics_enabled` | true | rule |
+| `wiring.role_assignments` | Connector function holds the role *Monitoring Metrics Publisher* on Application telemetry; Web app and MCP server holds the role *Key Vault Secrets User* on Secrets; Connector function holds the role *Key Vault Secrets User* on Secrets; Web app and MCP server holds the role *Storage Blob Data Contributor* on Uploaded files; Search; indexes the uploads, embeds with the models holds the role *Storage Blob Data Reader* on Uploaded files; Connector function holds the role *Storage Blob Data Owner* on State of the connector function; Connector function holds the role *Storage Table Data Contributor* on State of the connector function; Connector function holds the role *Storage Queue Data Contributor* on State of the connector function; Web app and MCP server holds the role *Cosmos DB Built-in Data Contributor* on Conversation history; Web app and MCP server holds the role *Cognitive Services OpenAI User* on Chat and embedding models; Connector function holds the role *Cognitive Services OpenAI User* on Chat and embedding models; Search; indexes the uploads, embeds with the models holds the role *Cognitive Services OpenAI User* on Chat and embedding models; Web app and MCP server holds the role *Search Index Data Reader* on Search; indexes the uploads, embeds with the models; Connector function holds the role *Search Index Data Contributor* on Search; indexes the uploads, embeds with the models; Code interpreter holds the role *AcrPull* on Images of all apps | your description |
 | `wiring.access` | Users → Chat front end and back end: HTTPS 443; Chat front end and back end → entra-id: sign-in; Chat front end and back end → MCP tool server; Chat front end and back end → Chat and embedding models; Chat front end and back end → Search; indexes the uploads, embeds with the models; Chat front end and back end → Conversation history; Chat front end and back end → Uploaded files; Chat front end and back end → Secrets; MCP tool server → Code interpreter; MCP tool server → Chat and embedding models; Connector to the document store → Search; indexes the uploads, embeds with the models; Connector to the document store → Chat and embedding models; Connector to the document store → Secrets; Connector to the document store → State of the connector function; Connector to the document store → Application telemetry; Code interpreter → Images of all apps: pulls its image | your description |

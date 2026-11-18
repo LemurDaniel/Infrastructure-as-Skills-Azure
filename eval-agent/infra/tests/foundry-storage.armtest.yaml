@@ -50,7 +50,7 @@
   path: resources.ai.properties.template.resources.account.identity
   absent: true
 
-- decision: foundry.identity.role_assignments
+- decision: wiring.role_assignments
   stage: production
   path: parameters.foundryRoleAssignments.value
   equals: []
@@ -101,7 +101,7 @@
   path: resources.storage.properties.template.resources.storageAccount.identity
   absent: true
 
-- decision: storage-account.identity.role_assignments
+- decision: wiring.role_assignments
   stage: production
   path: parameters.storageRoleAssignments.value
   equals: []
@@ -202,5 +202,5 @@
   path: resources.storage.properties.template.resources.container.properties.denyEncryptionScopeOverride
   absent: true
 
-- not_testable: blob-container.identity.role_assignments
+- not_testable: wiring.role_assignments
   reason: an empty list renders no role assignment on the container, so there is no path to assert; the roles on the account that carry the access are asserted with the storage account's wiring

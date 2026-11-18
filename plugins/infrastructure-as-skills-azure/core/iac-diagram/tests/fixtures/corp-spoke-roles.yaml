@@ -2,7 +2,7 @@
 # the drawing, not a deployment. One stage, a corp landing zone with a spoke network of its own,
 # the platform's DNS and the workload's own workspace. Twelve kinds of resource, two of them twice: a `<set>__<instance>`
 # key (spec.md, "Several of a kind") is a second resource of one kind. Every role between the
-# resources is its identity.role_assignments entry: a principal is a user-assigned identity's
+# resources is a wiring.role_assignments entry: `from` is a user-assigned identity's
 # resource key, or the key of a resource with a system-assigned identity.
 schema_version: 1
 spec:
@@ -308,13 +308,6 @@ resources:
       public_network_access:
         value: enabled
         source: default
-    identity:
-      role_assignments:
-        value:
-          production:
-          - principal: user-assigned-identity__connector
-            role: Monitoring Metrics Publisher
-        source: stated
     security:
       local_auth:
         value: disabled
@@ -347,15 +340,6 @@ resources:
       network_acl_bypass:
         value: None
         source: default
-    identity:
-      role_assignments:
-        value:
-          production:
-          - principal: user-assigned-identity__web
-            role: Key Vault Secrets User
-          - principal: user-assigned-identity__connector
-            role: Key Vault Secrets User
-        source: stated
     security:
       enabled_for_services:
         value: []
@@ -394,10 +378,6 @@ resources:
       isolation_scope:
         value: None
         source: default
-      role_assignments:
-        value:
-          production: &id007 []
-        source: default
   user-assigned-identity__connector:
     meta:
       purpose: { value: Connector function, source: stated }
@@ -411,10 +391,6 @@ resources:
       isolation_scope:
         value: None
         source: default
-      role_assignments:
-        value:
-          production: *id007
-        source: default
   user-assigned-identity__runner:
     meta:
       purpose: { value: Code interpreter, source: stated }
@@ -427,10 +403,6 @@ resources:
         source: default
       isolation_scope:
         value: None
-        source: default
-      role_assignments:
-        value:
-          production: *id007
         source: default
   storage-account__uploads:
     meta:
@@ -455,14 +427,6 @@ resources:
       managed_identity:
         value: system_assigned
         source: default
-      role_assignments:
-        value:
-          production:
-          - principal: user-assigned-identity__web
-            role: Storage Blob Data Contributor
-          - principal: search-service
-            role: Storage Blob Data Reader
-        source: stated
     security:
       local_auth:
         value: disabled
@@ -547,16 +511,6 @@ resources:
       managed_identity:
         value: system_assigned
         source: default
-      role_assignments:
-        value:
-          production:
-          - principal: user-assigned-identity__connector
-            role: Storage Blob Data Owner
-          - principal: user-assigned-identity__connector
-            role: Storage Table Data Contributor
-          - principal: user-assigned-identity__connector
-            role: Storage Queue Data Contributor
-        source: stated
     security:
       local_auth:
         value: disabled
@@ -664,17 +618,6 @@ resources:
       managed_identity:
         value: none
         source: default
-      data_plane_role_assignments:
-        value:
-          production:
-          - principal: user-assigned-identity__web
-            role: Cosmos DB Built-in Data Contributor
-            scope: account
-        source: stated
-      role_assignments:
-        value:
-          production: []
-        source: default
     security:
       local_auth:
         value: disabled
@@ -771,16 +714,6 @@ resources:
       managed_identity:
         value: system_assigned
         source: default
-      role_assignments:
-        value:
-          production:
-          - principal: user-assigned-identity__web
-            role: Cognitive Services OpenAI User
-          - principal: user-assigned-identity__connector
-            role: Cognitive Services OpenAI User
-          - principal: search-service
-            role: Cognitive Services OpenAI User
-        source: stated
     security:
       local_auth:
         value: disabled
@@ -834,14 +767,6 @@ resources:
       managed_identity:
         value: system_assigned
         source: default
-      role_assignments:
-        value:
-          production:
-          - principal: user-assigned-identity__web
-            role: Search Index Data Reader
-          - principal: user-assigned-identity__connector
-            role: Search Index Data Contributor
-        source: stated
     security:
       local_auth:
         value: disabled
@@ -897,12 +822,6 @@ resources:
       managed_identity:
         value: none
         source: default
-      role_assignments:
-        value:
-          production:
-          - principal: user-assigned-identity__runner
-            role: AcrPull
-        source: stated
     security:
       admin_enabled:
         value: false
@@ -988,10 +907,6 @@ resources:
         value:
           production: []
         source: default
-      role_assignments:
-        value:
-          production: []
-        source: default
     observability:
       diagnostic_workspace:
         value:
@@ -1074,10 +989,6 @@ resources:
         value:
         - resource: user-assigned-identity__connector
         source: stated
-      role_assignments:
-        value:
-          production: []
-        source: default
     security:
       https_only:
         value: true
@@ -1279,6 +1190,54 @@ resources:
         value: true
         source: default
 wiring:
+  role_assignments:
+    value:
+    - from: user-assigned-identity__connector
+      to: application-insights
+      role: Monitoring Metrics Publisher
+    - from: user-assigned-identity__web
+      to: key-vault
+      role: Key Vault Secrets User
+    - from: user-assigned-identity__connector
+      to: key-vault
+      role: Key Vault Secrets User
+    - from: user-assigned-identity__web
+      to: storage-account__uploads
+      role: Storage Blob Data Contributor
+    - from: search-service
+      to: storage-account__uploads
+      role: Storage Blob Data Reader
+    - from: user-assigned-identity__connector
+      to: storage-account__host
+      role: Storage Blob Data Owner
+    - from: user-assigned-identity__connector
+      to: storage-account__host
+      role: Storage Table Data Contributor
+    - from: user-assigned-identity__connector
+      to: storage-account__host
+      role: Storage Queue Data Contributor
+    - from: user-assigned-identity__web
+      to: cosmos-db
+      role: Cosmos DB Built-in Data Contributor
+    - from: user-assigned-identity__web
+      to: foundry
+      role: Cognitive Services OpenAI User
+    - from: user-assigned-identity__connector
+      to: foundry
+      role: Cognitive Services OpenAI User
+    - from: search-service
+      to: foundry
+      role: Cognitive Services OpenAI User
+    - from: user-assigned-identity__web
+      to: search-service
+      role: Search Index Data Reader
+    - from: user-assigned-identity__connector
+      to: search-service
+      role: Search Index Data Contributor
+    - from: user-assigned-identity__runner
+      to: container-registry
+      role: AcrPull
+    source: stated
   access:
     value:
     - from: users

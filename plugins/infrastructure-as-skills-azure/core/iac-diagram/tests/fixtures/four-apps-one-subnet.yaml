@@ -67,6 +67,15 @@ composition:
   granularity: single
   source: default
 wiring:
+  role_assignments:
+    value:
+    - from: app-service__dashboard
+      to: key-vault-secret__signin
+      role: Key Vault Secrets User
+    - from: app-service__tuner
+      to: key-vault-secret__github
+      role: Key Vault Secrets User
+    source: stated
   access:
     value:
     - from: users
@@ -218,19 +227,9 @@ resources:
   key-vault-secret__signin:
     placement:
       key_vault: { value: { resource: key-vault }, source: stated }
-    identity:
-      role_assignments:
-        value:
-        - { principal: app-service__dashboard, role: Key Vault Secrets User }
-        source: stated
   key-vault-secret__github:
     placement:
       key_vault: { value: { resource: key-vault }, source: stated }
-    identity:
-      role_assignments:
-        value:
-        - { principal: app-service__tuner, role: Key Vault Secrets User }
-        source: stated
   key-vault-key__signing:
     placement:
       key_vault: { value: { resource: key-vault }, source: stated }

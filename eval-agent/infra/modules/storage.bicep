@@ -128,8 +128,8 @@ resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@20
   }
 ]
 
-// decision: blob-container.identity.role_assignments - none on the container; the roles on the account
-// (wiring.role_assignments) carry the access.
+// decision: wiring.role_assignments - none on the container; the roles on the account
+// carry the access.
 
 // One endpoint per sub-resource.
 resource privateEndpoint 'Microsoft.Network/privateEndpoints@2025-01-01' = [
@@ -196,7 +196,7 @@ resource blobDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-previ
   }
 }
 
-// decision: storage-account.identity.role_assignments
+// decision: wiring.role_assignments
 resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
   for ra in roleAssignments: {
     name: guid(storageAccount.id, ra.principalId, ra.roleDefinitionId)

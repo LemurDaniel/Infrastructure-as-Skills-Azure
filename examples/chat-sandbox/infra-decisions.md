@@ -38,7 +38,7 @@ Nothing here was asked; each follows a rule or one of the answers above. Say so 
 
 ### For the whole system
 
-- Besides changing the resources themselves, whoever deploys needs: Role Based Access Control Administrator (resource_group), Key Vault Secrets Officer (key-vault). — because: `resources.foundry.identity.role_assignments, resources.search-service.identity.role_assignments, resources.storage-account.identity.role_assignments, resources.key-vault.identity.role_assignments, resources.key-vault.security.secret_placeholders`
+- Besides changing the resources themselves, whoever deploys needs: Role Based Access Control Administrator (resource_group), Key Vault Secrets Officer (key-vault). — because: `wiring.role_assignments, resources.key-vault.security.secret_placeholders`
 - The system lands in its own environment: there is no shared platform, so it brings its own network, name resolution and logging.
 - Passwords and access keys are switched off; access goes through company accounts, so every action is attributable.
 - Encryption keys are protected in software - the standard, sufficient unless a mandate names hardware.
@@ -61,17 +61,14 @@ The security baseline of every part in one place. None of it was asked and it is
   - Deploying with a user name and password is not possible; deployments run through company accounts.
 - **Azure AI Foundry (AI Services account with projects and model deployments)**
   - The account has its own identity.
-  - Access rights on the account granted to: app-service (Cognitive Services OpenAI User), search-service (Cognitive Services OpenAI User). — because: `wiring.access`
   - Signing in with account keys is switched off; access goes through company accounts.
   - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - **Azure AI Search service**
   - The search service has its own identity.
-  - Access rights on the search service granted to: app-service (Search Index Data Reader). — because: `wiring.access`
   - Signing in with API keys is switched off; access goes through company accounts.
   - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
 - **Azure Storage Account**
   - The storage has its own identity for reaching other services.
-  - Access rights granted to: app-service (Storage Blob Data Contributor), search-service (Storage Blob Data Reader). — because: `wiring.access`
   - Access with a shared key is not possible; access goes through company accounts.
   - Connections must use at least TLS 1.2 encryption.
   - Unencrypted connections are refused.
@@ -80,7 +77,6 @@ The security baseline of every part in one place. None of it was asked and it is
   - Encryption keys are managed by Azure - encrypted, rotated, no effort on your side.
   - File transfer via SFTP is off.
 - **Azure Key Vault**
-  - Access rights on the vault granted to: app-service (Key Vault Secrets User). — because: `wiring.access`
   - Platform services allowed to read from the vault: none (empty: none).
   - Empty slots are created for the secrets entra-client-secret; their values are entered afterwards by hand or by the workload.
 
@@ -189,6 +185,15 @@ The connections between the parts, the rights each one holds on another, and whe
 - Search index over the documents (RAG) → Chat and embedding models: Embeddings
 - Chat application (Docker container) → Client secret of the Entra app: reads the client secret
 
+**Rights**
+
+- Chat application (Docker container) holds the role *Cognitive Services OpenAI User* on Chat and embedding models
+- Search index over the documents (RAG) holds the role *Cognitive Services OpenAI User* on Chat and embedding models
+- Chat application (Docker container) holds the role *Search Index Data Reader* on Search index over the documents (RAG)
+- Chat application (Docker container) holds the role *Storage Blob Data Contributor* on Persistent data of the chat application
+- Search index over the documents (RAG) holds the role *Storage Blob Data Reader* on Persistent data of the chat application
+- Chat application (Docker container) holds the role *Key Vault Secrets User* on Client secret of the Entra app
+
 ## Appendix: every decision
 
 | Key | Value | Source |
@@ -196,7 +201,7 @@ The connections between the parts, the rights each one holds on another, and whe
 | `deployment.non_production_savings` | enabled | forced |
 | `deployment.naming_convention` | default | rule |
 | `deployment.deploy_mechanism` | local | your answer |
-| `deployment.deployer_roles` | [{"role": "Role Based Access Control Administrator", "scope": "resource_group", "for": ["resources.foundry.identity.role_assignments", "resources.search-service.identity.role_assignments", "resources.storage-account.identity.role_assignments", "resources.key-vault.identity.role_assignments"]}, {"role": "Key Vault Secrets Officer", "scope": "key-vault", "for": ["resources.key-vault.security.secret_placeholders"]}] | forced |
+| `deployment.deployer_roles` | [{"role": "Role Based Access Control Administrator", "scope": "resource_group", "for": ["wiring.role_assignments"]}, {"role": "Key Vault Secrets Officer", "scope": "key-vault", "for": ["resources.key-vault.security.secret_placeholders"]}] | forced |
 | `deployment.outage_impact` | tolerable | your answer |
 | `deployment.data_loss_tolerance` | one_week | your answer |
 | `deployment.data_access_pattern` | active | your answer |
@@ -247,7 +252,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `foundry.networking.public_network_access` | enabled | your departure |
 | `foundry.networking.restrict_outbound` | true | rule |
 | `foundry.identity.managed_identity` | system_assigned | rule |
-| `foundry.identity.role_assignments` | {"sandbox": [{"principal": "app-service", "role": "Cognitive Services OpenAI User"}, {"principal": "search-service", "role": "Cognitive Services OpenAI User"}]} | forced |
 | `foundry.security.local_auth` | disabled | inherited |
 | `foundry.security.key_management` | platform_managed | inherited |
 | `foundry.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
@@ -261,7 +265,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `search-service.networking.public_network_access` | enabled | your departure |
 | `search-service.networking.network_rule_bypass` | None | rule |
 | `search-service.identity.managed_identity` | system_assigned | rule |
-| `search-service.identity.role_assignments` | {"sandbox": [{"principal": "app-service", "role": "Search Index Data Reader"}]} | forced |
 | `search-service.security.local_auth` | disabled | inherited |
 | `search-service.security.key_management` | platform_managed | inherited |
 | `search-service.observability.diagnostic_workspace` | log-analytics-workspace | inherited |
@@ -272,7 +275,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `storage-account.networking.private_endpoint_subresources` | ["blob"] | rule |
 | `storage-account.networking.allow_azure_services_bypass` | true | rule |
 | `storage-account.identity.managed_identity` | system_assigned | rule |
-| `storage-account.identity.role_assignments` | {"sandbox": [{"principal": "app-service", "role": "Storage Blob Data Contributor"}, {"principal": "search-service", "role": "Storage Blob Data Reader"}]} | forced |
 | `storage-account.security.local_auth` | disabled | inherited |
 | `storage-account.security.min_tls_version` | 1.2 | rule |
 | `storage-account.security.https_traffic_only` | true | rule |
@@ -298,7 +300,6 @@ The connections between the parts, the rights each one holds on another, and whe
 | `key-vault.vault.rbac_authorization` | true | inherited |
 | `key-vault.networking.public_network_access` | enabled | your departure |
 | `key-vault.networking.network_acl_bypass` | None | rule |
-| `key-vault.identity.role_assignments` | {"sandbox": [{"principal": "app-service", "role": "Key Vault Secrets User"}]} | forced |
 | `key-vault.security.enabled_for_services` | [] | rule |
 | `key-vault.security.secret_placeholders` | ["entra-client-secret"] | your description |
 | `key-vault.keys.key_management` | platform_managed | inherited |
@@ -315,4 +316,5 @@ The connections between the parts, the rights each one holds on another, and whe
 | `log-analytics-workspace.data_protection.immediate_purge_protection` | true | rule |
 | `log-analytics-workspace.data_protection.archive_to_storage` | false | rule |
 | `wiring.private_dns_zones` | [] | forced |
+| `wiring.role_assignments` | Chat application (Docker container) holds the role *Cognitive Services OpenAI User* on Chat and embedding models; Search index over the documents (RAG) holds the role *Cognitive Services OpenAI User* on Chat and embedding models; Chat application (Docker container) holds the role *Search Index Data Reader* on Search index over the documents (RAG); Chat application (Docker container) holds the role *Storage Blob Data Contributor* on Persistent data of the chat application; Search index over the documents (RAG) holds the role *Storage Blob Data Reader* on Persistent data of the chat application; Chat application (Docker container) holds the role *Key Vault Secrets User* on Client secret of the Entra app | forced |
 | `wiring.access` | Users → Chat application (Docker container): HTTPS 443; Chat application (Docker container) → entra-id: Sign-in (client secret); Chat application (Docker container) → Chat and embedding models; Chat application (Docker container) → Search index over the documents (RAG): Search; Chat application (Docker container) → Persistent data of the chat application; Search index over the documents (RAG) → Persistent data of the chat application: indexes the documents; Search index over the documents (RAG) → Chat and embedding models: Embeddings; Chat application (Docker container) → Client secret of the Entra app: reads the client secret | your description |
