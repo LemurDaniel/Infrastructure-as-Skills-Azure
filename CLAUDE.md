@@ -23,7 +23,7 @@ is `core/iac-rendering/references/avm.md`.
 | Layer | Role |
 |---|---|
 | **Resource families** (`resources/<family>/`) | Reference material, not skills. One directory per resource, its decisions in `<resource>/questions.yaml`; the `azure-resources` skill routes into them |
-| **Pattern skills** (`patterns/`) | Pre-answer most of a resource's questions and own the wiring between the parts |
+| **Patterns** (`patterns/<id>/pattern.yaml`) | Data, not skills: a whole system - its parts, the questions only it asks, pre-answers in the parts' sets, and the wiring between them. `iac-authoring` routes into them through `patterns/routing.md` |
 | **`infra-spec.yaml`** | The interview's output. A backend renders *from* it; it is not a by-product |
 
 ## Commands
@@ -56,6 +56,16 @@ python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_
 # derived/confirmed/required questions, boundaries. The test asserts it drops none of them.
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/interview_digest.py compute/app-service --language de
 python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_interview_digest_tests.py
+
+# Validates every pattern (or the ones given) against references/pattern-format.md, in every
+# variant its asks produce: parts with a question set, pre-answers the set accepts and a pattern
+# may give, roles from built-in-roles.yaml on parts that have an identity, secrets a vault holds.
+# apply_pattern.py prints a pattern's share of a spec for the answers given. The test breaks one
+# rule per case in a fixture pattern, then applies every variant of every pattern, runs
+# check_spec.py on it and draws it.
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/check_pattern.py
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/scripts/apply_pattern.py ai-chat-rag --answer sign_in=company_accounts --language de
+python3 plugins/infrastructure-as-skills-azure/core/iac-authoring/tests/run_pattern_tests.py
 
 # What a render reads instead of spec.md and whole references: every decision with its key path
 # and the literal its render-map.yaml gives the target, the AVM modules, and the line ranges of
@@ -155,8 +165,9 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   `resources/` is deliberately not, so nothing in it costs budget — a family has a
   `routing.md`, never a `SKILL.md`, and the consistency script fails on one. The `skills/`
   scan is one level deep, cannot be switched off, and a declared path that does not
-  exist fails to load the plugin: `./patterns/` enters the array in the same commit as
-  its first skill.
+  exist fails to load the plugin. `patterns/` is not declared either: a pattern is a
+  `pattern.yaml` reached through `patterns/routing.md`, never a `SKILL.md` - a skill per
+  pattern overflows the budget at the second - and the consistency script fails on one.
 
 ## Gotchas
 

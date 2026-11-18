@@ -33,6 +33,19 @@ decision.
 | `iac-diagram` | Draws the spec as an editable draw.io diagram for sign-off before any code. |
 | `iac-rendering` | Renders the spec into Terraform or Bicep, with tests and a pipeline. |
 
+## Patterns
+
+A request that describes a whole system starts from a pattern: its parts, the few questions
+only it asks, and the wiring between the parts - which identity holds which role, which
+setting reads which secret. What you say still wins over what a pattern answers.
+
+| Pattern | The system |
+|---|---|
+| `ai-chat-rag` | A chat application over your own documents: app, language model, search index, document storage |
+| `private-webapp` | A web application with a relational database, connected without a password |
+| `event-integration` | An API whose requests are processed in the background: gateway, functions, a queue or events |
+| `container-microservices` | Several services as containers in one environment, an identity each, and their registry |
+
 ## Resources covered
 
 49 resource types in ten families, each with a question set and rendering references for

@@ -1,6 +1,45 @@
 # Patterns
 
-**Status:** planned - branch `pattern-skills`, release 0.7.0
+**Status:** built 2026-11-18 on branch `pattern-skills` (four patterns, format, checks, tests,
+eval cases); not yet seen in a paid run or rendered. 0.7.x was released without it - it ships
+with the next minor.
+
+## What was built, and where it departs from the plan below
+
+- **Plan steps 1-6 are done** except the paid eval run and the AVM building block:
+  `references/pattern-format.md`, `check_pattern.py`, `apply_pattern.py`, `pattern_lib.py`,
+  `run_pattern_tests.py`, the wiring schema and the pattern rules in `check_spec.py`,
+  `patterns/routing.md`, Phase 0 and the digest, the four patterns, four eval cases, the docs.
+- **The spec records `pattern:` at the top level**, not `deployment.pattern`: `pattern.id` and
+  `pattern.answers.<ask>`, each with `value` and `source`. `deployment:` holds answers to the
+  deployment set's questions, and the pattern's id is none of them; `write_spec.py` already
+  had the section in its order.
+- **Role assignments are `{ from, to, role }`**, the form `wiring.role_assignments` has in
+  `spec.md`, not `{ principal, scope, role }`: the pattern's lines go into the spec unchanged.
+- **Secrets are `{ app, setting, vault, secret_name }`** - `secret_name`, because the
+  repository's secret scan reads `secret: <value>` as a credential.
+- **A pattern pre-answers less than the sketch showed.** Never a question the customer is
+  asked, one a requirement derives, or one that inherits a deployment decision; the sketch's
+  `storage-account.shared_access_key_enabled` is the last kind. What is left: defaults the
+  wiring depends on, required references between parts, lists the sets say a pattern fills.
+- **`when` conditions read the pattern's own asks only**, and a part is a fixed spec key.
+  `ai-chat-rag` and `private-webapp` are therefore App Service systems; several containers
+  are `container-microservices` with the other resources added outside the pattern.
+- **The application's sign-in, the network, the workspace and Application Insights are not
+  parts**: deployment decisions bring them. Key Vault is a part only where a secret exists
+  (the company sign-in); keyless systems have none.
+- **`fixture spec per pattern` became "every variant, generated"**: the test applies each
+  variant, checks it with `check_spec.py` and draws it, instead of four hand-written specs.
+- **`private-link-private-dns-zones` as a building block is not done** (decided below): the
+  DNS zones are not a pattern's, so it belongs to the `private-dns-zone` rendering references
+  and waits there.
+- **`container-apps` got a shared environment** (`hosting_environment`,
+  `shared_environment_with`), without which the fourth pattern would render two environments.
+
+Open, from the list at the end: a pattern can be combined with resources outside it (the
+run adds them, the wiring becomes `stated`) - written as a rule, not measured; the diagram
+draws a pattern with the existing layouts, no tier grouping; `examples/chat-sandbox` is not
+regenerated from `ai-chat-rag`.
 
 ## Idea
 

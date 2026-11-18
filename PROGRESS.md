@@ -365,6 +365,37 @@ the detail; this list says what was decided and why, so a session does not reope
 
 ## State
 
+- **Four patterns, checked, not seen in a run** (2026-11-18, branch `pattern-skills`, on top
+  of `dev` at #53): `ai-chat-rag` (app, model, search, documents; chat history and a company
+  sign-in by ask; 8 variants), `private-webapp` (app, Azure SQL or PostgreSQL, file storage
+  and sign-in by ask; 8), `event-integration` (API Management, functions with a
+  user-assigned identity and host storage, Service Bus and/or Event Grid by ask; 3),
+  `container-microservices` (two container apps in one environment, an identity each,
+  registry; 2). `run_pattern_tests.py` (73 cases): 32 broken rules on a fixture pattern, every
+  variant applied, passed through `check_spec.py` and drawn by `new_diagram.py`, 11 broken
+  spec rules. `check_spec.py` gained the wiring schema (9g) and the pattern rules (9h);
+  `interview_digest.py --pattern <id>` prints a pattern with the sets of its parts; the
+  consistency script fails on a `SKILL.md` under `patterns/`, an unrouted pattern or a
+  declared `./patterns/`; `check_pattern.py`, `run_pattern_tests.py` and `run_spec_tests.py`
+  joined `run_repository_checks.py`. Four eval cases (`evals/patterns/`), their regexes
+  tested against script-written specs, **load-checked only - no paid run**: whether a run
+  picks the pattern from `routing.md`, calls `apply_pattern.py` and keeps a departure is
+  unmeasured, and in the eval sandbox (no shell) the share is written by hand.
+  **The container-apps set takes several apps per environment** for it:
+  `environment.hosting_environment` (`own` | `shared`) and `shared_environment_with`
+  (`{ ref: container_apps }`), the environment's questions gated on `own`, as App Service's
+  shared plan. Open there: the authored render-map entries are `gap`s (no schema at hand
+  for the argument that takes the environment id; the AVM inputs come from the set's dated
+  call examples), `check_spec.py` 9d no longer catches an empty `container-apps: {}` (its
+  ungated questions are gone), and "an owner that is itself shared" is prose only.
+  Open on the patterns: no render and no example built from one; no Bicep or Terraform test
+  of `wiring.secrets`; the shared private links a private `ai-chat-rag` needs are a
+  boundary, not rendered; `export_decisions.py` prints a wiring list as JSON; the
+  decision document does not name the pattern; a third service in
+  `container-microservices` is prose for the run, not data; `private-dns-zone` through the
+  AVM pattern module (decided 2026-10-29) is not done. `eval-agent/infra` and the Foundry
+  set's `why`/notes still say `Azure AI User`.
+
 - **One naming convention with the provider** (2026-11-06, branch `feature/naming-provider-2`):
   `LemurDaniel/naming` 2.1.0 checks every name against its type's rule at plan time and
   bundles the convention this plugin had, merged with its own; `naming.default.yaml` is now
@@ -557,6 +588,35 @@ the detail; this list says what was decided and why, so a session does not reope
   process pair was rendered headless in a cloud session and wants one open in draw.io on
   the owner's machine to confirm it still edits.
 
+- **Patterns are data, and a script applies them** (2026-11-18, branch `pattern-skills`; the
+  plan and its departures are in `ideas/pattern-skill.md`). `patterns/<id>/pattern.yaml`
+  names a system's parts, its asks, its pre-answers and its wiring (`access`,
+  `role_assignments`, `secrets`); `patterns/routing.md` routes a request to one, or to none.
+  No `SKILL.md`, not declared in `plugin.json`: the listing is at 90% (1,802 of 2,000).
+  - **A pattern answers defaults and references, never the customer or the posture**:
+    `check_pattern.py` refuses a pre-answer for an `interview` question, one a requirement
+    derives, and one that inherits a deployment decision. The sketch's example
+    (`shared_access_key_enabled: false`) is such an inherited question and is therefore not
+    a pre-answer; `local_auth` decides it for every resource.
+  - **Every variant is checked, not the file**: the conditions (`when` on an ask of the
+    pattern) make one file several systems, so the check and the test resolve each value of
+    each enum or bool ask and hold every variant to the rules - a role only for a part with an
+    identity of its own, a role explained by an access line, a secret the vault's placeholders
+    create and an identity of the app may read.
+  - **`apply_pattern.py` writes the pattern's share of the spec**, the run never works the
+    conditions out; `check_spec.py` compares every `source: pattern` value with what the
+    pattern gives for the recorded answers, so a changed value cannot keep the pattern's name.
+  - **The network is not a part**: virtual network, security groups, endpoints, DNS zones,
+    workspace and Application Insights come from the deployment decisions for any system.
+  - **Role names come from a generated list** (`references/built-in-roles.yaml`, from
+    Microsoft's built-in roles page, `.github/scripts/update_built_in_roles.py`), never from
+    memory. It found a rename on its first run: `Azure AI User` is `Foundry User` now (same
+    definition id) - a warning in `check_spec.py`, since a spec written before is valid.
+  - **`wiring.secrets` is the spec's place for a secret an app setting reads**
+    (`{ app, setting, vault, secret_name }`), which the re-render of `eval-agent/infra` had
+    found missing. The field is `secret_name`, not `secret`: the repository's secret scan
+    reads `secret: <value>` as a credential.
+
 ## Road to 1.0.0
 
 1.0.0 means stable formats (owner's call, 2026-10-29): the spec format and the question-set
@@ -569,8 +629,9 @@ Must:
 - **Freeze the formats.** Merge the format revision (#15), then name in `spec.md` and
   `question-set-format.md` what is the stable interface, and how a spec from an older plugin
   is carried forward.
-- **The pattern skill** (`ideas/pattern-skill.md`): `patterns/` is empty; composition is
-  proven by two hand-wired examples only.
+- ~~**The pattern skill** (`ideas/pattern-skill.md`)~~ - built 2026-11-18 as four patterns in
+  data with format, checks and tests (see *State*). Left for 1.0: one paid eval run of
+  `evals/patterns/`, and one example rendered from a pattern.
 - ~~**A Terraform render applied** through one rendered pipeline, as `eval-agent/` did for Bicep~~
   - done (owner, 2026-10-29).
 - ~~**The decision document prints raw values**~~ - done (2026-10-29). Every question has a
@@ -1190,8 +1251,9 @@ regeneration from the spec loses them. All `render`:
 - A sandbox subscription with a federated credential and a fenced resource group for the
   deploy agent (`ideas/autonomous-terraform-agent.md`). The first apply ran in the owner's
   own subscription (`eval-agent/`); a fenced sandbox is still missing.
-- `patterns/` is empty: composition is specified and proven by two hand-wired examples
-  only (`ideas/pattern-skill.md`).
+- The pattern branch: review and merge `pattern-skills` (nothing is committed by the session
+  that built it), a version for the release that carries it (0.8.0 - 0.7.x is out), and the
+  first paid run of `evals/patterns/`.
 - An AVM version drift check, read-only, scheduled (`ideas/avm-drift-watch.md`).
 - First run of the image pipeline (AcrPush is granted, 2026-10-25) and a check that its closing step really leaves the registry at `Disabled`. The dashboard's real mode (blob, GitHub, sign-in) has not run.
 - The repository secret `ANTHROPIC_API_KEY` for `eval.plugin.yaml`.
@@ -1217,12 +1279,12 @@ regeneration from the spec loses them. All `render`:
 `question-set-format.md` and the render-map format name their stable interface. What is
 left of the sources (*Open*) is small and can follow.
 
-**The pattern skill** (`ideas/pattern-skill.md`, draft PR #16): the wiring that `chatbot` and
-`chatbot-rag` carry by hand — roles between resources, the private link, the order
-identity → vault → consumer — becomes the first pattern, `./patterns/` enters
-`plugin.json` in the same commit, and `wiring:` becomes a schema `check_spec.py` validates.
-Before it, the eval case that asserts the `requirements` group reaches the customer (the
-`backup-vault` set it waited for exists since 2026-10-25). Beside it, when a
-run is paid for anyway: the eval suite re-run against the rules written after the
-baseline, and `agents.md`'s two missing rules. The chatbot case in Bicep is what tests the
-sets from 2026-10-23 cross-backend; it follows the pattern, not the other way round.
+**The patterns in a run** (`ideas/pattern-skill.md`, draft PR #16): the four patterns are
+built and script-tested (*State*); what no script can show is the interview. Run
+`evals/patterns/` once on Sonnet, read the transcripts - is the pattern proposed without a
+question of its own, do its asks land in their topics, is `apply_pattern.py` called - and fix
+what they show in `iac-authoring` and `pattern-format.md`. Then render one example from
+`ai-chat-rag` in both targets: it is the cross-backend test the sets from 2026-10-23 waited
+for, and the first render of `wiring.secrets`. Beside it, when a run is paid for anyway: the
+eval case that asserts the `requirements` group reaches the customer, and `agents.md`'s two
+missing rules.
