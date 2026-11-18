@@ -1022,6 +1022,11 @@ otherwise the line is simply absent.
 `owner` of every `open:` entry are printed verbatim into the picture, the `question` into
 the decision document (the picture counts the open entries by owner and points at the
 document), so an English label there is a `spec` finding of the review. Keys, values, `why`, `reason` stay English.
+The German wording in this skill - the lists, the option texts, a phrase in brackets - is the
+`de` variant of a template and nothing else: under `language: en` none of it reaches the spec,
+and each of those four is written in English (`HTTPS 443, company network only`, never
+`HTTPS 443, nur aus dem Firmennetz`). A purpose is the request's own words for a part; a part
+the request gives no purpose - the workspace, the monitoring component, the network - gets none.
 
 **Write the decision document in the same step**, in the user's language:
 
