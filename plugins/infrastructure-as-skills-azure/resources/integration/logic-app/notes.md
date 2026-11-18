@@ -38,7 +38,7 @@ change either; re-read the pinned README.
 managed identity; the Azure Files share that holds the app content is mounted with a connection
 string. Keep it in Key Vault as a reference, keep shared-key access on the storage account **on**
 (the share needs it) with the key rotated by the vault, and name it in the handover - a storage
-set that renders `shared_access_key_enabled: false` for this account breaks the app at start.
+set that renders `local_auth: disabled` for this account breaks the app at start.
 
 **A private storage account needs VNet integration and `vnet_route_all`.** The host reaches its
 storage over the integration subnet; without integration, or with only private-range routing and

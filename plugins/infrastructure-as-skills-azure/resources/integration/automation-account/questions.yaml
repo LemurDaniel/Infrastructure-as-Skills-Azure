@@ -234,30 +234,31 @@ groups:
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients authenticate to the account without Entra ID?"
           de: "Dürfen sich Clients ohne Entra ID am Konto anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in without a company account is {value}."
           de: "Die Anmeldung ohne Firmenkonto ist {value}."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         forced_when: >
           A webhook is a URL with a token in it: with local authentication disabled no
           webhook starts a job. An account whose jobs must be started by webhook records
-          `local_auth: allowed_where_unavoidable` for this account alone, with the caller in
+          `local_auth: enabled` for this account alone, with the caller in
           the reason - or the caller starts the job through ARM with an identity instead
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. Local authentication is the
+          Inherited from the deployment's `local_auth`. Local authentication is the
           webhook token and the agent-based worker's key - bearer credentials that start
           jobs with the account's identity and are not attributable. Extension-based hybrid
           workers and every job started through ARM keep working. **The modules disagree**:
           Bicep disables it by default, Terraform's `local_authentication_enabled` defaults on
-          and is the inverse.
+          and states it positively.
 
       - id: key_management
         ask:

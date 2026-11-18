@@ -89,7 +89,7 @@ groups:
           **fixed at creation**. Both modules default to the Event Grid schema; the default
           here is written, not inherited.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which TLS version is the lowest a publisher may use?"
           de: "Welche ist die niedrigste TLS-Version, die ein Publisher verwenden darf?"
@@ -113,9 +113,9 @@ groups:
           de: "Zugriffsschlüssel sind {value}."
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
-          allowed_where_unavoidable: { en: allowed on this topic, de: auf diesem Thema erlaubt }
-        accepts: [disabled, allowed_where_unavoidable]
-        answer: { deployment: local_auth }
+          enabled: { en: allowed on this topic, de: auf diesem Thema erlaubt }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: enabled } }
         why: >
           Inherited: `local_auth: disabled` renders as local authentication off, so every
           publisher signs in with Entra ID and every publish is attributable. Both modules

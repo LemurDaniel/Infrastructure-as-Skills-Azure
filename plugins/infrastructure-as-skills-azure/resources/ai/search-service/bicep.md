@@ -60,7 +60,7 @@ module search 'br/public:avm/res/search/search-service:0.13.0' = {
     ]
 
     managedIdentities: { systemAssigned: true }
-    // decision: search-service.security.local_authentication_disabled
+    // decision: search-service.security.local_auth
     disableLocalAuth: true
     roleAssignments: roleAssignments
 

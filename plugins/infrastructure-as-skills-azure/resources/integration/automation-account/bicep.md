@@ -53,7 +53,7 @@ module automationAccount 'br/public:avm/res/automation/automation-account:0.19.3
 
     // decision: automation-account.networking.public_network_access - a string here, a bool on the resource
     publicNetworkAccess: 'Disabled'
-    // decision: automation-account.security.local_authentication_disabled
+    // decision: automation-account.security.local_auth
     disableLocalAuth: true
 
     // decision: automation-account.identity.managed_identity

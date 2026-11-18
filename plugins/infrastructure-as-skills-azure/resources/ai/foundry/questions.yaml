@@ -460,23 +460,24 @@ groups:
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients sign in with the account keys?"
           de: "Dürfen sich Clients mit den Kontoschlüsseln anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in with account keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit Kontoschlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. A key is a bearer credential
+          Inherited from the deployment's `local_auth`. A key is a bearer credential
           for every model on the account, is not attributable and pays for whatever it
           is used for. **The modules disagree**: Bicep disables keys by default, Terraform's
-          `local_auth_enabled` defaults on, and the Terraform input is the inverse. The
+          `local_auth_enabled` defaults on and states the switch positively. The
           client then needs a token for the `https://cognitiveservices.azure.com` scope and
           the account's custom subdomain, which is why the subdomain is set.
 

@@ -67,7 +67,7 @@ module communication 'br/public:avm/res/communication/communication-service:0.6.
     linkedDomains: [ '${email.outputs.resourceId}/domains/AzureManagedDomain' ]
     // decision: communication-services.networking.public_network_access - Enabled without a perimeter
     publicNetworkAccess: 'Enabled'
-    // decision: communication-services.security.local_authentication_disabled
+    // decision: communication-services.security.local_auth
     disableLocalAuth: true
     // decision: communication-services.identity.managed_identity - none; `{ systemAssigned: true }` for recordings in storage
     managedIdentities: {}

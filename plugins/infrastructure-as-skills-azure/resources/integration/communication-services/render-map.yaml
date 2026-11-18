@@ -152,10 +152,10 @@ decisions:
       note: "one per entry, scoped to the communication service; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
 
   # ----------------------------------------------------------------- security
-  security.local_authentication_disabled:
-    terraform: { attribute: azapi_resource body.properties.disableLocalAuth, passthrough: true, note: not in azurerm; written }
-    bicep_avm: { attribute: disableLocalAuth, passthrough: true, note: unset by default; written }
-    bicep: { attribute: properties.disableLocalAuth, passthrough: true }
+  security.local_auth:
+    terraform: { attribute: azapi_resource body.properties.disableLocalAuth, values: { disabled: true, enabled: false }, note: not in azurerm; written }
+    bicep_avm: { attribute: disableLocalAuth, values: { disabled: true, enabled: false }, note: unset by default; written }
+    bicep: { attribute: properties.disableLocalAuth, values: { disabled: true, enabled: false } }
 
   # ------------------------------------------------------------ observability
   observability.diagnostic_workspace:

@@ -138,16 +138,15 @@ decisions:
       note: one per entry, scoped to the bot; the role definition id, not the name - no module resolves names
 
   # ----------------------------------------------------------------- security
-  security.local_authentication_disabled:
+  security.local_auth:
     terraform_avm:
       attribute: local_authentication_enabled
-      values: { true: false, false: true }
-      note: inverse; module default null (on) - written
+      values: { disabled: false, enabled: true }
+      note: module default null (on) - written
     terraform:
       attribute: local_authentication_enabled
-      values: { true: false, false: true }
-      note: inverse
-    bicep: { attribute: properties.disableLocalAuth, passthrough: true }
+      values: { disabled: false, enabled: true }
+    bicep: { attribute: properties.disableLocalAuth, values: { disabled: true, enabled: false } }
   security.key_management:
     terraform_avm:
       attribute: is_cmek_enabled

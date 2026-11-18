@@ -74,7 +74,7 @@ module "sqlmi" {
   public_data_endpoint_enabled = false
   # decision: sql-managed-instance.networking.connection_type - the module default is Default
   proxy_override = "Redirect"
-  # decision: sql-managed-instance.networking.minimum_tls_version
+  # decision: sql-managed-instance.networking.min_tls_version
   minimum_tls_version = "1.2"
   # decision: sql-managed-instance.networking.private_endpoint - none
   private_endpoints                       = {}
@@ -83,7 +83,7 @@ module "sqlmi" {
   # decision: sql-managed-instance.identity.managed_identity
   managed_identities = { system_assigned = true }
 
-  # decision: sql-managed-instance.identity.entra_admin / security.local_authentication_disabled
+  # decision: sql-managed-instance.identity.entra_admin / security.local_auth
   active_directory_administrator = {
     login_username                      = var.entra_admin_login
     object_id                           = var.entra_admin_object_id

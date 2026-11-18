@@ -68,7 +68,7 @@ module "cosmos" {
   # private_dns_records: policy - the platform policy writes the record
   private_endpoints_manage_dns_zone_group = false
 
-  # decision: cosmos-db.security.local_authentication_disabled / key_based_metadata_writes
+  # decision: cosmos-db.security.local_auth / key_based_metadata_writes
   local_authentication_disabled        = true
   access_key_metadata_writes_enabled   = false
 

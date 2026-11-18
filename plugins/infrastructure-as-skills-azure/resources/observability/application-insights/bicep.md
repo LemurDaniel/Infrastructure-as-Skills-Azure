@@ -49,7 +49,7 @@ module insights 'br/public:avm/res/insights/component:0.8.0' = {
     publicNetworkAccessForIngestion: 'Disabled'
     publicNetworkAccessForQuery: 'Disabled'
 
-    // decision: application-insights.security.local_authentication_disabled
+    // decision: application-insights.security.local_auth
     disableLocalAuth: true
 
     retentionInDays: workspaceRetentionDays // follows the workspace

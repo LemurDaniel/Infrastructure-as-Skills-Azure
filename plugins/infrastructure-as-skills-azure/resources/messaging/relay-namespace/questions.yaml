@@ -137,13 +137,13 @@ groups:
           de: "Zugriffsschlüssel und Verbindungszeichenfolgen sind {value}."
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
-          allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
-        accepts: [disabled, allowed_where_unavoidable]
-        answer: { deployment: local_auth }
+          enabled: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: enabled } }
         forced_when: >
           The type has no switch: the service creates `RootManageSharedAccessKey` with every
           namespace and nothing in the API turns SAS off. `disabled` is therefore recorded as
-          `forced` to `allowed_where_unavoidable` with the resource type as forced_by, and
+          `forced` to `enabled` with the resource type as forced_by, and
           what the posture still buys is kept: no authorization rule is rendered beyond the
           one the service creates, no key is read, output or placed in a setting, and
           listeners and senders hold `Azure Relay Listener` and `Azure Relay Sender` on the

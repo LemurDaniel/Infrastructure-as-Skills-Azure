@@ -38,7 +38,7 @@ module sql 'br/public:avm/res/sql/server:0.22.1' = {
     location: location
     tags: tags
 
-    // decision: sql-database.security.local_authentication_disabled / identity.entra_admin
+    // decision: sql-database.security.local_auth / identity.entra_admin
     // Entra-only: no administratorLogin, no password
     administrators: {
       administratorType: 'ActiveDirectory'

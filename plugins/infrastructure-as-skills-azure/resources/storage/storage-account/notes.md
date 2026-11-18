@@ -19,7 +19,7 @@ now. Ask if the request mentions a data lake, Databricks, Synapse or Fabric.
 
 ## Disabling shared keys breaks consumers silently
 
-`shared_access_key_enabled: false` is a one-line diff and a dead application, because the
+`local_auth: disabled` is a one-line diff and a dead application, because the
 failure is a 403 at runtime rather than anything at apply time.
 
 For a **new** account it is free — there are no consumers yet, which is exactly why the

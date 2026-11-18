@@ -271,25 +271,25 @@ decisions:
       attribute: properties.authConfig.passwordAuth
       values: { true: Disabled, false: Enabled }
       note: "activeDirectoryAuth and tenantId beside it; false needs administratorLogin and its password (source: bicep build, Microsoft.DBforPostgreSQL/flexibleServers@2026-01-01-preview)"
-  security.minimum_tls_version:
+  security.min_tls_version:
     terraform_avm:
       attribute: server_configuration.ssl_min_protocol_version
       values:
-        TLSv1.2: { expr: '{ name = "ssl_min_protocol_version", config = "TLSv1.2" }' }
-        TLSv1.3: { expr: '{ name = "ssl_min_protocol_version", config = "TLSv1.3" }' }
+        "1.2": { expr: '{ name = "ssl_min_protocol_version", config = "TLSv1.2" }' }
+        "1.3": { expr: '{ name = "ssl_min_protocol_version", config = "TLSv1.3" }' }
       also:
-        TLSv1.2: 'require_secure_transport = { name = "require_secure_transport", config = "on" }'
-        TLSv1.3: 'require_secure_transport = { name = "require_secure_transport", config = "on" }'
+        "1.2": 'require_secure_transport = { name = "require_secure_transport", config = "on" }'
+        "1.3": 'require_secure_transport = { name = "require_secure_transport", config = "on" }'
     terraform:
       gap: azurerm_postgresql_flexible_server_configuration { name, value } carries a server parameter (ssl_min_protocol_version, and require_secure_transport = on, as in the module call), but the provider schema and docs prove neither the parameter name nor its values
     bicep_avm:
       attribute: 'configurations[]'
       values:
-        TLSv1.2: { expr: "{ name: 'ssl_min_protocol_version', source: 'user-override', value: 'TLSv1.2' }" }
-        TLSv1.3: { expr: "{ name: 'ssl_min_protocol_version', source: 'user-override', value: 'TLSv1.3' }" }
+        "1.2": { expr: "{ name: 'ssl_min_protocol_version', source: 'user-override', value: 'TLSv1.2' }" }
+        "1.3": { expr: "{ name: 'ssl_min_protocol_version', source: 'user-override', value: 'TLSv1.3' }" }
       also:
-        TLSv1.2: "{ name: 'require_secure_transport', source: 'user-override', value: 'on' }"
-        TLSv1.3: "{ name: 'require_secure_transport', source: 'user-override', value: 'on' }"
+        "1.2": "{ name: 'require_secure_transport', source: 'user-override', value: 'on' }"
+        "1.3": "{ name: 'require_secure_transport', source: 'user-override', value: 'on' }"
     bicep:
       gap: a child configurations { properties.value } (ssl_min_protocol_version, as in the module call) compiles, but its name and value are free strings - bicep build proves neither
   security.key_management:

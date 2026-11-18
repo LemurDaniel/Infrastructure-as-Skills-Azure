@@ -89,7 +89,7 @@ groups:
           `sku` and `capacity`; **the Bicep module has no input for either** and deploys the
           platform's one unit, so a larger namespace in Bicep is an authored render.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which TLS version is the lowest a publisher may use?"
           de: "Welche ist die niedrigste TLS-Version, die ein Publisher verwenden darf?"
@@ -115,13 +115,13 @@ groups:
           de: "Zugriffsschlüssel sind {value}."
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
-          allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
-        accepts: [disabled, allowed_where_unavoidable]
-        answer: { deployment: local_auth }
+          enabled: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: enabled } }
         forced_when: >
           The type has no switch: every namespace topic carries two keys the service creates
           and rotates on request, and nothing in the API turns them off. `disabled` is
-          therefore recorded as `forced` to `allowed_where_unavoidable` with the resource
+          therefore recorded as `forced` to `enabled` with the resource
           type as forced_by, and what the posture still buys is kept: no key is read, output
           or placed in a setting, publishers and receivers hold `EventGrid Data Sender` and
           `EventGrid Data Receiver`, and the right to list keys stays with the deploying

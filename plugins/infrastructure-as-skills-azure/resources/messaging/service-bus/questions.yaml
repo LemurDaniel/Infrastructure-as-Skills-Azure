@@ -156,7 +156,7 @@ groups:
           the default and enough until a measured throughput says otherwise; it also keeps
           ordering and duplicate detection simple, which partitioned entities restrict.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which TLS version is the lowest a client may use?"
           de: "Welche ist die niedrigste TLS-Version, die ein Client verwenden darf?"
@@ -182,9 +182,9 @@ groups:
           de: "Zugriffsschlüssel und Verbindungszeichenfolgen sind {value}."
         plain_values:
           disabled: { en: switched off, de: abgeschaltet }
-          allowed_where_unavoidable: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
-        accepts: [disabled, allowed_where_unavoidable]
-        answer: { deployment: local_auth }
+          enabled: { en: allowed on this namespace, de: auf diesem Namensraum erlaubt }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: enabled } }
         why: >
           Inherited: `local_auth: disabled` renders as local authentication off, so every
           sender and receiver signs in with Entra ID and every action is attributable. The

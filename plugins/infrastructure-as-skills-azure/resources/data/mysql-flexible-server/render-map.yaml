@@ -234,32 +234,32 @@ decisions:
       gap: "true is configurations[] { name: 'aad_auth_only', source: 'user-override', value: 'ON' }; the reference states no literal for false. The administrator login and a secure password are still required at creation"
     bicep:
       gap: true is a child configurations aad_auth_only = ON; the reference states no literal for false and the authored rendering names no property
-  security.minimum_tls_version:
+  security.min_tls_version:
     terraform_avm:
       attribute: server_configuration.tls_version
       values:
-        TLSv1.2: { expr: '{ name = "tls_version", value = "TLSv1.2,TLSv1.3" }' }
-        TLSv1.3: { expr: '{ name = "tls_version", value = "TLSv1.3" }' }
+        "1.2": { expr: '{ name = "tls_version", value = "TLSv1.2,TLSv1.3" }' }
+        "1.3": { expr: '{ name = "tls_version", value = "TLSv1.3" }' }
       also:
-        TLSv1.2: 'require_secure_transport = { name = "require_secure_transport", value = "ON" }'
-        TLSv1.3: 'require_secure_transport = { name = "require_secure_transport", value = "ON" }'
+        "1.2": 'require_secure_transport = { name = "require_secure_transport", value = "ON" }'
+        "1.3": 'require_secure_transport = { name = "require_secure_transport", value = "ON" }'
       note: a list - not a minimum
     terraform:
       attribute: azurerm_mysql_flexible_server_configuration tls_version
-      values: { TLSv1.2: 'TLSv1.2,TLSv1.3', TLSv1.3: TLSv1.3 }
+      values: { "1.2": 'TLSv1.2,TLSv1.3', "1.3": TLSv1.3 }
       note: the parameter's value; the authored rendering names no argument beside it
     bicep_avm:
       attribute: 'configurations[]'
       values:
-        TLSv1.2: { expr: "{ name: 'tls_version', source: 'user-override', value: 'TLSv1.2,TLSv1.3' }" }
-        TLSv1.3: { expr: "{ name: 'tls_version', source: 'user-override', value: 'TLSv1.3' }" }
+        "1.2": { expr: "{ name: 'tls_version', source: 'user-override', value: 'TLSv1.2,TLSv1.3' }" }
+        "1.3": { expr: "{ name: 'tls_version', source: 'user-override', value: 'TLSv1.3' }" }
       also:
-        TLSv1.2: "{ name: 'require_secure_transport', source: 'user-override', value: 'ON' }"
-        TLSv1.3: "{ name: 'require_secure_transport', source: 'user-override', value: 'ON' }"
+        "1.2": "{ name: 'require_secure_transport', source: 'user-override', value: 'ON' }"
+        "1.3": "{ name: 'require_secure_transport', source: 'user-override', value: 'ON' }"
       note: a list - not a minimum
     bicep:
       attribute: child configurations tls_version
-      values: { TLSv1.2: 'TLSv1.2,TLSv1.3', TLSv1.3: TLSv1.3 }
+      values: { "1.2": 'TLSv1.2,TLSv1.3', "1.3": TLSv1.3 }
       note: the parameter's value; the authored rendering names no property of the child
   security.key_management:
     terraform_avm:

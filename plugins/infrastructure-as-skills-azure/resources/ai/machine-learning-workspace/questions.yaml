@@ -459,7 +459,7 @@ groups:
           The default datastores authenticate with the account key unless told otherwise,
           which forces shared-key access on the storage account and puts the key in the
           workspace's vault. `identity` uses the workspace identity (and the user's for the
-          studio), which is what lets the storage set keep `shared_access_key_enabled` off.
+          studio), which is what lets the storage set keep `local_auth: disabled`.
           Users then need `Storage Blob Data Contributor` themselves, which `role_assignments`
           on the storage account carries - a pattern's wiring. The Terraform module defaults
           to `identity`, the Bicep module leaves it unset (key) - written.

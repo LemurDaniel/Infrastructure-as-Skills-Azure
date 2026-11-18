@@ -73,7 +73,7 @@ decisions:
       gap: no azurerm_relay_namespace_authorization_rule and no *_connection_string output
     bicep_avm:
       attribute: authorizationRules
-      values: { disabled: { expr: '[]' }, allowed_where_unavoidable: { expr: '[]' } }
+      values: { disabled: { expr: '[]' }, enabled: { expr: '[]' } }
       note: both answers - the service creates RootManageSharedAccessKey anyway and no rule is rendered beyond it; unset, the module would declare that root rule itself (Listen/Manage/Send)
     bicep:
       gap: no child authorizationRules and no listKeys() in any output

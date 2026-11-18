@@ -87,7 +87,7 @@ resource "azapi_resource" "communication" {
   body = {
     properties = {
       dataLocation = "Europe" # decision: communication-services.service.data_location
-      # decision: communication-services.security.local_authentication_disabled
+      # decision: communication-services.security.local_auth
       disableLocalAuth = true
       # decision: communication-services.networking.public_network_access - forced to Enabled
       # without a network security perimeter; the resource has no private endpoint

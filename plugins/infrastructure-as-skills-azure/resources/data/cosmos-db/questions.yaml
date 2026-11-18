@@ -439,20 +439,21 @@ groups:
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients sign in with the account keys?"
           de: "Dürfen sich Clients mit den Kontoschlüsseln anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in with account keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit Kontoschlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. An account key is a root
+          Inherited from the deployment's `local_auth`. An account key is a root
           credential for every database in the account, does not expire and is not
           attributable. It cannot be combined with the data roles above in the same client
           without the client choosing one, which is why the roles come first. Both modules

@@ -105,14 +105,14 @@ decisions:
       note: 'one per entry, scope: the component; roleDefinitionId is the definition id, never the name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)'
 
   # ----------------------------------------------------------------- security
-  security.local_authentication_disabled:
+  security.local_auth:
     terraform_avm:
       attribute: local_authentication_disabled
-      passthrough: true
-      note: same polarity - the AzAPI module keeps the name the call writes (local_authentication_disabled = true); module default false - written
+      values: { disabled: true, enabled: false }
+      note: the AzAPI module keeps the name the call writes (local_authentication_disabled = true); module default false - written
     terraform:
       attribute: local_authentication_enabled
-      values: { true: false, false: true }
-      note: inverse; the 4.x local_authentication_disabled is gone in 5.x
-    bicep_avm: { attribute: disableLocalAuth, passthrough: true, note: module default false; written }
-    bicep: { attribute: properties.DisableLocalAuth, passthrough: true }
+      values: { disabled: false, enabled: true }
+      note: the 4.x local_authentication_disabled is gone in 5.x
+    bicep_avm: { attribute: disableLocalAuth, values: { disabled: true, enabled: false }, note: module default false; written }
+    bicep: { attribute: properties.DisableLocalAuth, values: { disabled: true, enabled: false } }

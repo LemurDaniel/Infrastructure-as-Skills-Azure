@@ -308,24 +308,25 @@ groups:
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients sign in with the access keys or the connection string?"
           de: "Dürfen sich Clients mit den Zugriffsschlüsseln oder dem Connection String anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in with access keys is {value}; access goes through company accounts."
           de: "Die Anmeldung mit Zugriffsschlüsseln ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         forced_when: >
-          `local_auth: allowed_where_unavoidable` is named for a client SDK or a connector
+          `local_auth: enabled` is named for a client SDK or a connector
           that offers no token credential - checked against the SDK before a render, because
           the current SDKs all take one
         why: >
-          Inherited: `local_auth: disabled` renders as `true`. The connection string is a
+          Inherited from the deployment's `local_auth`. The connection string is a
           bearer credential for every channel on the resource - it sends mail and SMS as
           the organisation and mints user tokens - and it is what ends up in an application
           setting. With keys off the application authenticates with its managed identity and

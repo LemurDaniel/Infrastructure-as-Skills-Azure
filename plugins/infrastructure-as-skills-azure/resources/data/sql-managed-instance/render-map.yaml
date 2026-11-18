@@ -211,7 +211,7 @@ decisions:
     terraform: { attribute: proxy_override, passthrough: true }
     bicep_avm: { attribute: proxyOverride, passthrough: true, note: module default Proxy - always written }
     bicep: { attribute: properties.proxyOverride, passthrough: true }
-  networking.minimum_tls_version:
+  networking.min_tls_version:
     terraform_avm: { attribute: minimum_tls_version, passthrough: true }
     terraform: { attribute: minimum_tls_version, passthrough: true }
     bicep_avm: { attribute: minimalTlsVersion, passthrough: true }
@@ -266,20 +266,20 @@ decisions:
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the instance; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
 
   # ----------------------------------------------------------------- security
-  security.local_authentication_disabled:
+  security.local_auth:
     terraform_avm:
       attribute: active_directory_administrator.azuread_authentication_only_enabled
-      passthrough: true
+      values: { disabled: true, enabled: false }
       note: administrator_login and password are still required by module and provider - a generated random_password, never output, never stored
     terraform:
       attribute: azuread_administrator.azuread_authentication_only_enabled
-      passthrough: true
+      values: { disabled: true, enabled: false }
       note: administrator_login and password still required
     bicep_avm:
       attribute: administrators.azureADOnlyAuthentication
-      passthrough: true
+      values: { disabled: true, enabled: false }
       note: no administratorLogin or password - the module makes the pair conditional on administrators being absent
-    bicep: { attribute: properties.administrators.azureADOnlyAuthentication, passthrough: true, note: no administratorLogin }
+    bicep: { attribute: properties.administrators.azureADOnlyAuthentication, values: { disabled: true, enabled: false }, note: no administratorLogin }
   security.key_management:
     terraform_avm:
       attribute: transparent_data_encryption

@@ -87,7 +87,7 @@ module postgresql 'br/public:avm/res/db-for-postgre-sql/flexible-server:0.16.1' 
       }
     ]
 
-    // decision: postgresql-flexible-server.security.minimum_tls_version
+    // decision: postgresql-flexible-server.security.min_tls_version
     configurations: [
       { name: 'ssl_min_protocol_version', source: 'user-override', value: 'TLSv1.2' }
       { name: 'require_secure_transport', source: 'user-override', value: 'on' }

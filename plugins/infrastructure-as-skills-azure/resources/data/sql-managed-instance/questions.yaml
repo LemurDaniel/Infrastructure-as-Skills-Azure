@@ -453,7 +453,7 @@ groups:
           proxied on 3342, whatever this says. **The modules default differently**
           (`Default` in Terraform, `Proxy` in Bicep); written on every call.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which is the oldest TLS version the instance accepts?"
           de: "Welche ist die älteste TLS-Version, die die Instanz annimmt?"
@@ -576,18 +576,19 @@ groups:
   - id: security
     title: Security
     questions:
-      - id: local_authentication_disabled
+      - id: local_auth
         ask:
           en: "May clients sign in with a SQL user name and password?"
           de: "Dürfen sich Clients mit einem SQL-Benutzernamen und Passwort anmelden?"
-        type: bool
+        type: enum
         plain:
           en: "Signing in with a SQL password is {value}; access goes through company accounts."
           de: "Die Anmeldung mit SQL-Kennwort ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "switched off", de: "abgeschaltet" }
-          false: { en: "possible", de: "möglich" }
-        answer: { deployment: local_auth, map: { disabled: true, allowed_where_unavoidable: true } }
+          disabled: { en: "switched off", de: "abgeschaltet" }
+          enabled: { en: "possible", de: "möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
           Inherited: `local_auth: disabled` renders as Entra-only authentication. A SQL
           login is a password that does not expire, is shared, and is not attributable in

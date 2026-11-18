@@ -179,11 +179,11 @@ decisions:
       attribute: customDomains properties.tlsSettings.certificateType
       values: { managed: ManagedCertificate, customer: CustomerCertificate }
       note: '(source: bicep build, Microsoft.Cdn/profiles/customDomains@2025-06-01; literals from module README 0.20.0)'
-  delivery.minimum_tls_version:
-    terraform_avm: { attribute: 'front_door_custom_domains.<k>.tls.minimum_tls_version', passthrough: true }
-    terraform: { attribute: azurerm_cdn_frontdoor_custom_domain.tls.minimum_tls_version, passthrough: true }
-    bicep_avm: { attribute: 'customDomains[].minimumTlsVersion', module: avm/res/cdn/profile, passthrough: true }
-    bicep: { attribute: customDomains properties.tlsSettings.minimumTlsVersion, passthrough: true, note: '(source: bicep build, Microsoft.Cdn/profiles/customDomains@2025-06-01)' }
+  delivery.min_tls_version:
+    terraform_avm: { attribute: 'front_door_custom_domains.<k>.tls.minimum_tls_version', values: { "1.0": TLS10, "1.2": TLS12 } }
+    terraform: { attribute: azurerm_cdn_frontdoor_custom_domain.tls.minimum_tls_version, values: { "1.0": TLS10, "1.2": TLS12 } }
+    bicep_avm: { attribute: 'customDomains[].minimumTlsVersion', module: avm/res/cdn/profile, values: { "1.0": TLS10, "1.2": TLS12 } }
+    bicep: { attribute: customDomains properties.tlsSettings.minimumTlsVersion, values: { "1.0": TLS10, "1.2": TLS12 }, note: '(source: bicep build, Microsoft.Cdn/profiles/customDomains@2025-06-01)' }
 
   # ----------------------------------------------------------------- security
   security.waf_enabled:

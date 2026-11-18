@@ -492,7 +492,7 @@ groups:
           kept: the password is generated for the one call - write-only in Terraform, a
           secure parameter with a generated default in Bicep - and not stored or output.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which is the oldest TLS version the server accepts?"
           de: "Welche ist die älteste TLS-Version, die der Server annimmt?"
@@ -500,13 +500,13 @@ groups:
         plain:
           en: "Connections must use {value} or newer."
           de: "Verbindungen müssen {value} oder neuer verwenden."
-        accepts: [TLSv1.2, TLSv1.3]
-        default: TLSv1.2
+        accepts: ["1.2", "1.3"]
+        default: "1.2"
         why: >
           TLS 1.2 is the floor of the guardrails and what every current driver speaks.
           Encryption in transit is not a decision: `require_secure_transport` is always
           `ON`. The protocol is the server parameter `tls_version`, which takes a list, not
-          a minimum: the answer `TLSv1.2` renders as `TLSv1.2,TLSv1.3`, and `TLSv1.3`
+          a minimum: the answer `1.2` renders as `TLSv1.2,TLSv1.3`, and `1.3`
           as `TLSv1.3`.
 
       - id: key_management

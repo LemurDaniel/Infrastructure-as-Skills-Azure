@@ -33,7 +33,7 @@ decisions:
     bicep_avm:
       gap: "module README 0.8.0 has no sku or capacity parameter - the platform's one unit recorded forced, or the namespace authored with sku: { name: 'Standard', capacity }"
     bicep: { attribute: sku.capacity, passthrough: true, note: "sku: { name: 'Standard', capacity } beside properties" }
-  namespace.minimum_tls_version:
+  namespace.min_tls_version:
     terraform_avm:
       gap: module README v0.1.2 has no input for the minimum TLS version - azapi_update_resource on the module's resource_id with body.properties.minimumTlsVersionAllowed
     terraform: { attribute: body.properties.minimumTlsVersionAllowed, passthrough: true }

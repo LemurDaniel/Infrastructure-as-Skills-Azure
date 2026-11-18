@@ -145,17 +145,16 @@ decisions:
       note: "one per entry, scoped to the search service; roleDefinitionId takes the definition id, the render resolves the role name (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)"
 
   # ----------------------------------------------------------------- security
-  security.local_authentication_disabled:
+  security.local_auth:
     terraform_avm:
       attribute: local_authentication_enabled
-      values: { true: false, false: true }
-      note: inverse; module default null (on) - written
+      values: { disabled: false, enabled: true }
+      note: module default null (on) - written
     terraform:
       attribute: local_authentication_enabled
-      values: { true: false, false: true }
-      note: inverse
-    bicep_avm: { attribute: disableLocalAuth, passthrough: true, note: module default true; authOptions is ignored while it is true }
-    bicep: { attribute: properties.disableLocalAuth, passthrough: true }
+      values: { disabled: false, enabled: true }
+    bicep_avm: { attribute: disableLocalAuth, values: { disabled: true, enabled: false }, note: module default true; authOptions is ignored while it is true }
+    bicep: { attribute: properties.disableLocalAuth, values: { disabled: true, enabled: false } }
   security.key_management:
     not_rendered: decides whether cmk_enforcement is asked; no attribute of its own
   security.cmk_enforcement:

@@ -510,7 +510,7 @@ groups:
           the provider's - password on - and the Bicep module's is Entra on and password
           off; the block is written on every call.
 
-      - id: minimum_tls_version
+      - id: min_tls_version
         ask:
           en: "Which is the oldest TLS version the server accepts?"
           de: "Welche ist die älteste TLS-Version, die der Server annimmt?"
@@ -518,8 +518,8 @@ groups:
         plain:
           en: "Connections must use {value} or newer."
           de: "Verbindungen müssen {value} oder neuer verwenden."
-        accepts: [TLSv1.2, TLSv1.3]
-        default: TLSv1.2
+        accepts: ["1.2", "1.3"]
+        default: "1.2"
         why: >
           TLS 1.2 is the floor of the guardrails and what every current driver speaks.
           Encryption in transit is not a decision: `require_secure_transport` is always

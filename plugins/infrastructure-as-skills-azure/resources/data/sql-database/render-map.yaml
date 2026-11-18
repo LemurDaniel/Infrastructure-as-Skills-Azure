@@ -220,7 +220,7 @@ decisions:
       values: { true: '0.0.0.0', false: null }
       also: { true: "endIpAddress: '0.0.0.0'" }
       note: false renders no child
-  networking.minimum_tls_version:
+  networking.min_tls_version:
     terraform_avm:
       gap: module README v0.2.1 has no input for the minimum TLS version - the module fixes minimum_tls_version = "1.2", which is the answer 1.2
     terraform: { attribute: minimum_tls_version, passthrough: true }
@@ -281,17 +281,17 @@ decisions:
     bicep: { attribute: Microsoft.Authorization/roleAssignments, note: "scope the server; control plane (source: bicep build, Microsoft.Authorization/roleAssignments@2022-04-01)" }
 
   # ----------------------------------------------------------------- security
-  security.local_authentication_disabled:
+  security.local_auth:
     terraform_avm:
       attribute: azuread_administrator.azuread_authentication_only
-      passthrough: true
-      note: true renders no administrator_login or password; generate_administrator_login_password default false - written
-    terraform: { attribute: azuread_administrator.azuread_authentication_only, passthrough: true, note: true renders no administrator_login }
+      values: { disabled: true, enabled: false }
+      note: disabled renders no administrator_login or password; generate_administrator_login_password default false - written
+    terraform: { attribute: azuread_administrator.azuread_authentication_only, values: { disabled: true, enabled: false }, note: disabled renders no administrator_login }
     bicep_avm:
       attribute: administrators.azureADOnlyAuthentication
-      passthrough: true
-      note: true renders no administratorLogin or administratorLoginPassword
-    bicep: { attribute: properties.administrators.azureADOnlyAuthentication, passthrough: true, note: true renders no administratorLogin }
+      values: { disabled: true, enabled: false }
+      note: disabled renders no administratorLogin or administratorLoginPassword
+    bicep: { attribute: properties.administrators.azureADOnlyAuthentication, values: { disabled: true, enabled: false }, note: disabled renders no administratorLogin }
   security.key_management:
     terraform_avm:
       attribute: transparent_data_encryption_key_vault_key_id

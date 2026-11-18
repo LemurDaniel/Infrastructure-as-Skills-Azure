@@ -251,20 +251,21 @@ groups:
   - id: security
     title: Security
     questions:
-      - id: shared_access_key_enabled
+      - id: local_auth
         ask:
           en: "Should shared key (account key) authentication stay enabled?"
           de: "Soll die Anmeldung mit Shared Key (Kontoschlüssel) aktiviert bleiben?"
-        type: bool
+        type: enum
         plain:
           en: "Access with a shared key is {value}; access goes through company accounts."
           de: "Zugriff mit einem geteilten Schlüssel ist {value}; der Zugriff läuft über Firmenkonten."
         plain_values:
-          true: { en: "possible", de: "möglich" }
-          false: { en: "not possible", de: "nicht möglich" }
-        answer: { deployment: local_auth, map: { disabled: false, allowed_where_unavoidable: false } }
+          enabled: { en: "possible", de: "möglich" }
+          disabled: { en: "not possible", de: "nicht möglich" }
+        accepts: [disabled, enabled]
+        answer: { deployment: local_auth, map: { disabled: disabled, allowed_where_unavoidable: disabled } }
         why: >
-          Inherited: `local_auth: disabled` renders as `false` here. An account key
+          Inherited from the deployment's `local_auth`. An account key
           is a bearer credential with full data-plane rights, it does not expire,
           and its use is indistinguishable from any other key holder in the audit
           log. The usual blocker is a legacy consumer holding a connection string —
@@ -281,10 +282,10 @@ groups:
           en: "Connections must use at least {value} encryption."
           de: "Verbindungen müssen mindestens {value}-Verschlüsselung nutzen."
         plain_values:
-          TLS1_2: { en: "TLS 1.2", de: "TLS 1.2" }
-          TLS1_3: { en: "TLS 1.3", de: "TLS 1.3" }
-        accepts: [TLS1_2, TLS1_3]
-        default: TLS1_2
+          "1.2": { en: "TLS 1.2", de: "TLS 1.2" }
+          "1.3": { en: "TLS 1.3", de: "TLS 1.3" }
+        accepts: ["1.2", "1.3"]
+        default: "1.2"
         why: >
           1.2 is the floor and non-negotiable. 1.3 is preferable where every
           client supports it, but an unsupported floor fails as an opaque
