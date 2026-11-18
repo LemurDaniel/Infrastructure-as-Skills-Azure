@@ -42,7 +42,7 @@ on:
         default: ""
       max_cost_usd:
         description: Hard cost ceiling in USD
-        default: "30"
+        default: "40"
       case:
         description: Case name glob (empty = all)
         default: ""

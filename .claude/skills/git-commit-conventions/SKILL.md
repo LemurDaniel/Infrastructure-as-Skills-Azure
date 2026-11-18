@@ -232,7 +232,7 @@ Beyond the script:
      ```
      CLAUDE_CODE_EFFORT_LEVEL=low $claude plugin eval plugins/infrastructure-as-skills-azure \
        --model sonnet --judge-model sonnet -j 8 --ablation none --scaffold --allow-tools Write Edit \
-       --trust-plugin --no-publish --threshold 0 --max-cost-usd 30 --output-dir <scratch>/eval
+       --trust-plugin --no-publish --threshold 0 --max-cost-usd 40 --output-dir <scratch>/eval
      python3 .claude/skills/plugin-evals/scripts/show_eval_result.py <scratch>/eval/aggregate-result.json
      ```
      It reports per case the failing and UNSTABLE graders with their
