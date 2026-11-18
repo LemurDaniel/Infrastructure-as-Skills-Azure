@@ -5,7 +5,7 @@ expected_outcome: >-
   infra/infra-spec.yaml with pattern.id ai-chat-rag, the parts app-service__chat, foundry, search-service, storage-account and key-vault, no cosmos-db, the search service's roles on the storage account and the model, the sign-in secret referenced from the vault, values the pattern gave marked source pattern.
 tags: [terraform, pattern, ai, wiring]
 plugins: ["../../.."]
-runs: 4
+runs: 2
 max_turns: 60
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

@@ -5,7 +5,7 @@ expected_outcome: >-
   infra/infra-spec.yaml with pattern.id event-integration, api-management, function-app__processor, user-assigned-identity__processor, storage-account__host and service-bus; no event-grid-topic, key vault or database; Azure Service Bus Data Sender granted to the identity; the function app's host storage a reference to storage-account__host.
 tags: [terraform, pattern, integration, nothing-invented]
 plugins: ["../../.."]
-runs: 4
+runs: 2
 max_turns: 60
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]
