@@ -5,7 +5,7 @@ expected_outcome: >-
   infra/infra-spec.yaml with pattern.id private-webapp, postgresql-flexible-server and no sql-database, a storage-account whose role for app-service__web is Storage Blob Data Reader and no entry grants Contributor, wiring.role_assignments not source pattern, no key-vault.
 tags: [terraform, pattern, webapp, departure]
 plugins: ["../../.."]
-runs: 4
+runs: 2
 max_turns: 60
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]

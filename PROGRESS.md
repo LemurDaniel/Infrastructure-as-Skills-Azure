@@ -380,7 +380,9 @@ the detail; this list says what was decided and why, so a session does not reope
   `container-microservices` said "that call each other" against a worker nobody calls.
   Unexplained on Sonnet and unread: `no-german-in-spec` 1 of 2, `no-invented-workspace-id`
   3 of 4, `stages-default-stack` 1 of 2. Haiku records the pattern in 2 of 16 runs -
-  recorded, not chased. Nothing is
+  recorded, not chased. The four pattern cases dropped to `runs: 2` afterwards (owner's
+  call: they cost about $3 each at four runs), so the suite is 52 runs, about $28 on Sonnet
+  against a ceiling raised from $30 to $40 for the run before a merge. Nothing is
   re-rendered: the rendered examples changed in comments and test markers only.
   `examples/chat-sandbox` still reads `var.role_assignments` keyed by resource, and
   `eval-agent/infra` still passes empty `*RoleAssignments` parameters - correct code of the

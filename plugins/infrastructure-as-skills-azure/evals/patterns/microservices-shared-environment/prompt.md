@@ -5,7 +5,7 @@ expected_outcome: >-
   infra/infra-spec.yaml with pattern.id container-microservices, container-apps__api and container-apps__worker, the worker's hosting_environment shared with container-apps__api and its ingress none, AcrPull for both user-assigned identities on the registry, no access line from the first service to the worker.
 tags: [terraform, pattern, containers, wiring]
 plugins: ["../../.."]
-runs: 4
+runs: 2
 max_turns: 60
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Write, Edit]
