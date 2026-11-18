@@ -46,6 +46,14 @@ def main():
             head["plugin_version"] = version
         code, out = run(head)
         results.append(case(name, code == expected, f"exit {code}: {out}"))
+    # What cannot be compared is "could not run" (exit 2), never a pass: the caller compares by hand.
+    with tempfile.TemporaryDirectory() as d:
+        missing = subprocess.run([sys.executable, str(SCRIPT), str(Path(d) / "none.yaml")], capture_output=True, text=True)
+        results.append(case("no such spec: could not run", missing.returncode == 2, f"exit {missing.returncode}: {missing.stdout}{missing.stderr}"))
+        broken = Path(d) / "infra-spec.yaml"
+        broken.write_text("spec: [unclosed", encoding="utf-8")
+        unreadable = subprocess.run([sys.executable, str(SCRIPT), str(broken)], capture_output=True, text=True)
+        results.append(case("a spec that does not parse: could not run", unreadable.returncode == 2, f"exit {unreadable.returncode}: {unreadable.stdout}{unreadable.stderr}"))
     sys.exit(0 if all(results) else 1)
 
 

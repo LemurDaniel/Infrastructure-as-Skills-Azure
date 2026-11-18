@@ -20,7 +20,8 @@ from pathlib import Path
 try:
     import yaml
 except ImportError:
-    sys.exit("PyYAML is required: pip install pyyaml")
+    print("PyYAML is required: pip install pyyaml")
+    sys.exit(2)
 
 HERE = Path(__file__).resolve().parent
 PLUGIN = HERE.parents[2]

@@ -6,8 +6,9 @@
 Exit 0: the installed plugin is the same or newer than `spec.plugin_version`, or the spec
 carries none (written before the field existed) or an unreadable one - never a reason to
 stop. Exit 3: the spec was written by a NEWER plugin than this one; the caller halts, asks
-the person to update and renders nothing. Any other exit is an error of the script itself.
-Needs PyYAML.
+the person to update and renders nothing. Exit 2: the script could not run (no PyYAML, no
+such spec, a spec or plugin.json that does not parse) - the caller compares the two versions
+by hand and never reads it as a pass. Needs PyYAML.
 """
 import json
 import re
@@ -17,10 +18,12 @@ from pathlib import Path
 try:
     import yaml
 except ImportError:
-    sys.exit("PyYAML is required: pip install pyyaml")
+    print("PyYAML is required: pip install pyyaml")
+    sys.exit(2)
 
 PLUGIN_JSON = Path(__file__).resolve().parents[3] / ".claude-plugin" / "plugin.json"
 NEWER = 3
+COULD_NOT_RUN = 2
 
 
 def parse(v):
@@ -31,15 +34,21 @@ def parse(v):
 
 def main():
     if len(sys.argv) != 2:
-        sys.exit(__doc__)
-    installed = json.loads(PLUGIN_JSON.read_text(encoding="utf-8")).get("version")
-    spec = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8")) or {}
+        print(__doc__)
+        return COULD_NOT_RUN
+    try:
+        installed = json.loads(PLUGIN_JSON.read_text(encoding="utf-8")).get("version")
+        spec = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8")) or {}
+    except (OSError, ValueError, yaml.YAMLError) as e:
+        print(f"could not compare the versions: {e}")
+        return COULD_NOT_RUN
     head = spec.get("spec") if isinstance(spec, dict) else None
     recorded = head.get("plugin_version") if isinstance(head, dict) else None
 
     have, was = parse(installed), parse(recorded)
     if have is None:
-        sys.exit(f"{PLUGIN_JSON}: no readable version ({installed!r})")
+        print(f"{PLUGIN_JSON}: no readable version ({installed!r})")
+        return COULD_NOT_RUN
     if recorded is None:
         print(f"installed={installed} spec=none: the spec predates plugin_version; stamp it when it is written next.")
         return 0
