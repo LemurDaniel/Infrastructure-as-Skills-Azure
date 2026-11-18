@@ -227,6 +227,13 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
 - **A decision that holds for more than one resource belongs in the deployment set.** A
   resource question that re-asks one carries `answer: { deployment: <id> }` instead of a `default`.
 - **A missing question set is said out loud, never improvised.**
+- **A role assignment is wiring, never a resource's decision.** One list,
+  `wiring.role_assignments`, `{ from, to, role }`, the same for every stage; `from` is a
+  resource key or `{ existing: entra_group | principal }`, `to` a resource key. No set asks
+  `role_assignments` (`check_question_set.py` fails on it): what a service's roles are is the
+  set's `notes.md`, *Roles*; how an entry renders is
+  `core/iac-rendering/references/role-assignments.md`. A scope that is no resource of the
+  spec is a `role-assignment` resource.
 - **The stack is the default.** `context.environments` is `[development, test, production]`
   unless the customer says otherwise; one root, one parameter file and one state (backend
   key, never a workspace) per stage. A `per_environment` value is a parameter from the
@@ -245,7 +252,8 @@ are in [README.md](README.md#why-one-trigger-and-families-that-are-not-skills).
   decision, named `# decision: <resource>.<group>.<question>`, what a plan cannot observe
   `# not-testable:` with a reason. Bicep: one entry per decision in `tests/*.armtest.yaml`
   against the compiled ARM (`run_arm_tests.py`; symbolic names via `bicepconfig.json`).
-  `check_render_coverage.py` fails on anything else, per target.
+  `check_render_coverage.py` fails on anything else, per target. `wiring.role_assignments` is
+  the one key several tests may carry - one per target its entries land on.
 - **`check_question_set.py` parses; `check_repo_consistency.py` greps.** Run both before
   a commit that touches a question set: the first finds a default outside `accepts` or a
   `depends_on` pointing nowhere, the second finds a routing row pointing nowhere.

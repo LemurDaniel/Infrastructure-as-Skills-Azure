@@ -55,6 +55,9 @@ a regex cannot see - what references/question-set-format.md promises:
      `min_tls_version` is an enum of plain version numbers ("1.0" to "1.3"); a backend's
      spelling of either (`local_authentication_disabled`, `shared_access_key_enabled`,
      `access_keys_authentication_disabled`, `minimum_tls_version`) is refused as an id.
+ 13. Roles are wiring, in a resource set: no question `role_assignments` or
+     `data_plane_role_assignments`. A role is a relationship between two parts of a system,
+     recorded once in the spec's `wiring.role_assignments` with the resource as `to`.
 
 Needs PyYAML (pip install pyyaml). Without it the script says so and exits 2
 rather than pretending the files are fine.
@@ -104,6 +107,9 @@ RETIRED_IDS = {
     'access_keys_authentication_disabled': 'local_auth',
     'minimum_tls_version': 'min_tls_version',
 }
+# A role on a resource is a relationship between two parts of a system: the spec records it in
+# wiring.role_assignments, and no resource set asks for it.
+ROLE_QUESTION_IDS = ('role_assignments', 'data_plane_role_assignments')
 LOCAL_AUTH_VALUES = ['disabled', 'enabled']
 TLS_VERSIONS = ['1.0', '1.1', '1.2', '1.3']
 
@@ -287,6 +293,9 @@ def check_set(path, doc, deployment, rel):
             # stays in render-map.yaml.
             if qid in RETIRED_IDS:
                 err(f"{where}: '{qid}' is a backend's spelling of a shared decision - the id is '{RETIRED_IDS[qid]}'")
+            if qid in ROLE_QUESTION_IDS:
+                err(f"{where}: roles on a resource are not a question of its set - they are wiring.role_assignments "
+                    f"entries {{ from, to, role }} with this resource as `to`; what the roles are goes into notes.md")
             if qid == 'local_auth' and (qtype != 'enum' or values != LOCAL_AUTH_VALUES):
                 err(f"{where}: local_auth is an enum accepting exactly [{', '.join(LOCAL_AUTH_VALUES)}]")
             if qid == 'min_tls_version' and (qtype != 'enum' or values is None or not set(values) <= set(TLS_VERSIONS)):

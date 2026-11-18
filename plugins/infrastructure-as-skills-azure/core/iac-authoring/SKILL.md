@@ -401,9 +401,13 @@ mapping:
   exposure is `public` in every stage, the network `none` in every stage. A run never
   splits a posture decision (exposure, local auth, keys, DNS, landing zone) by stage; only
   the customer's explicit word for a named stage does, recorded `{ overridden: <reason> }` there.
-- **An empty list is not always an answer.** Storage role assignments with shared keys
-  off: an empty default renders an account nobody can use, so it is an `open:` entry with
-  its owner rather than a decided value - read the question's `why` before recording `[]`.
+- **A role is wiring, never a resource's decision.** Who holds which role on which resource
+  is one entry `{ from, to, role }` of `wiring.role_assignments`, the same list for every
+  stage ([spec.md](references/spec.md#role-assignments)); no resource carries a role list.
+  A keyless resource (`local_auth: disabled`) that another one reaches is of no use until
+  that one holds a role on it: write the entry - the target's `notes.md`, *Roles*, names
+  the narrow role - and where nobody named the consumer, an `open:` entry with the key
+  `wiring.role_assignments` and its owner. `check_spec.py` warns on the gap.
 - **Context values are bare.** `context:` holds values (`environments: [...]`,
   `workload: payments`, a per-stage map), not `value:`/`source:` records; the provenance
   of a context value is the deployment set's, under `deployment:`.
@@ -508,8 +512,9 @@ resolved and written like any other - its access and authentication decisions li
 in the deployment set - `application_monitoring:
 enabled` with an application (App Service, Function App, Container Apps) brings one
 `application-insights` component that every application's `application_insights` names - its
-connection and authentication settings and its `Monitoring Metrics Publisher` role are rendered
-with the application, they are infrastructure, not application code - a registry or
+connection and authentication settings are rendered with the application, they are
+infrastructure, not application code, and with `local_auth: disabled` each application's
+identity holds `Monitoring Metrics Publisher` on it (a `wiring.role_assignments` entry) - a registry or
 identity requirement brings its own resource. Work out the full resource list from the
 deployment set first, then read all of the sets in one pass. A set read after the batch, or
 after Phase 5 has begun, means its interview questions could not be asked and its defaults
@@ -564,7 +569,7 @@ hold against a wrong stage file; Phase 4 says so. `check_spec.py` fails on a `cr
 `subscription`-scoped deployer role under it.
 `deployment.deployer_roles` is such a value, written last, once every resource is resolved:
 the roles the deploying identity needs beyond `Contributor`, derived from `create` groups,
-role assignments and secret placeholders (`forced_when` in the deployment set).
+`wiring.role_assignments` and secret placeholders (`forced_when` in the deployment set).
 
 Defaults are not invented per resource — they come from
 [references/guardrails.md](references/guardrails.md), which is also where their reasoning

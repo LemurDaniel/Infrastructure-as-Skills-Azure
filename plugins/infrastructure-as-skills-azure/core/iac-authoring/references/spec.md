@@ -623,7 +623,7 @@ on its groups. It is derived, never asked, and recomputed on every run:
 | When the spec has | The identity needs |
 |---|---|
 | A group in `resource_groups_created` | `Contributor` on the subscription |
-| Any `role_assignments` (a resource's or `wiring.`) | `Role Based Access Control Administrator` on the resource group, limited to the roles the spec assigns |
+| An entry in `wiring.role_assignments` | `Role Based Access Control Administrator` on the resource group, limited to the roles the spec assigns |
 | A key vault with `secret_placeholders` | `Key Vault Secrets Officer` on that vault |
 
 `for` names the decisions behind each grant. The same holds for `local` - whoever runs the
@@ -685,7 +685,7 @@ open:
 
 | Field | Holds |
 |---|---|
-| `key` | Required. The key path the entry stands for (`context.subscription_id`, `deployment.address_space`, `resources.<key>.<group>.<id>`) |
+| `key` | Required. The key path the entry stands for (`context.subscription_id`, `deployment.address_space`, `resources.<key>.<group>.<id>`, `wiring.role_assignments`) |
 | `environments` | The stages still missing, where the value is a stage map; absent means every stage |
 | `question` | What has to be answered, in `context.language` |
 | `owner` | Who answers it, in `context.language` (`Plattform-Team`, `network / IPAM owner`); absent when the person asking is the one to answer |
@@ -720,13 +720,51 @@ since only the root sees both ends:
 | Key | Entries | Renders as |
 |---|---|---|
 | `access` | `{ from, to, label? }` - a resource of the spec or an actor (`users`, `internet`, `external:<name>`) on each side | The lines of the picture; no code of its own |
-| `role_assignments` | `{ from, to, role }` - the identity (a resource of the spec, or a group by name), the resource the role is on, a role of [built-in-roles.yaml](built-in-roles.yaml) | One role assignment at the target's scope, through the target module's `role_assignments` interface or authored |
+| `role_assignments` | `{ from, to, role }` - who holds the role, the resource it is on, a role of [built-in-roles.yaml](built-in-roles.yaml); see *Role assignments* below | One role assignment at the target's scope, through the target module's `role_assignments` interface or authored - [role-assignments.md](../../iac-rendering/references/role-assignments.md) |
 | `secrets` | `{ app, setting, vault, secret_name }` - an application and a key vault of the spec, the setting's name, a secret the vault's `secret_placeholders` creates | An app setting holding a Key Vault reference (App Service, Function App), or a secret with its Key Vault URL and an environment variable naming it (Container Apps); never a value |
 | `private_dns_zones` | The privatelink zones of the endpoints | See [private-dns-zones.md](../../iac-rendering/references/private-dns-zones.md) |
 
-A role may equally be recorded on its target (`resources.<key>.identity.role_assignments`,
-`{ principal, role }`), which is where a single resource's interview puts it; `wiring` is
-where a relationship between two resources of a system belongs. One grant is written once.
+### Role assignments
+
+**A role is recorded in the wiring and nowhere else.** It is a relationship between two parts
+of a system, and `wiring:` is where relationships live; a resource carries no role decision,
+and `check_spec.py` fails on one. One grant is written once:
+
+```yaml
+wiring:
+  role_assignments:
+    value:
+    - from: app-service__chat              # a resource of the spec: its identity holds the role
+      to: storage-account
+      role: Storage Blob Data Reader
+    - from:                                # a principal outside the spec, as a reference
+        existing: entra_group
+        id:
+          development: 00000000-0000-0000-0000-0000000000d1
+          test: 00000000-0000-0000-0000-0000000000d2
+          production: 00000000-0000-0000-0000-0000000000d3
+      to: key-vault
+      role: Key Vault Secrets Officer
+    source: stated
+```
+
+| Field | Holds |
+|---|---|
+| `from` | A resource key of the spec: the resource whose own identity holds the role - a resource with a system-assigned identity, or the `user-assigned-identity` a resource acts with. Or a principal outside the spec in the reference form of *References*: `{ existing: entra_group }` for people, `{ existing: principal }` for a workload identity (a service principal, an identity another deployment owns), with `id: { <stage>: <object id> }` where the person gave it, else an `open:` entry with the key `wiring.role_assignments` naming who supplies it. Never a name as free text |
+| `to` | A resource key of the spec - the scope of the assignment. A narrower scope is a narrower resource of the spec (a `blob-container`, a `key-vault-secret`), never free text |
+| `role` | A name of [built-in-roles.yaml](built-in-roles.yaml): `roles`, or `data_plane` for Cosmos DB's own role model. The render tells them apart by the role |
+
+**One list holds for every stage.** A role belongs to the system, not to a stage: the list is
+never a stage map, and what differs per stage is only the id of a principal outside the spec.
+
+**A scope that is no resource of the spec is not wiring.** An assignment on a resource group,
+a subscription or a platform resource is a `role-assignment` resource with its own question
+set; the wiring holds relationships between two parts the spec names.
+
+**A consumer nobody named is an `open:` entry**, key `wiring.role_assignments`, with the owner
+who names it. `check_spec.py` warns when a resource whose `local_auth` is `disabled` is reached
+by another resource (`wiring.access`) that holds no role on it and no such entry exists: the
+first call would be refused.
 
 A spec built from a pattern ([pattern-format.md](pattern-format.md)) names it at the top:
 
@@ -1212,7 +1250,8 @@ What it checks is the contract of this file: provenance (a known `source`, an ov
 its reason, a `forced_by` that exists, a `derived_from` naming a deployment answer), the
 key paths and enum values against the question sets, no backend attribute spelling,
 `composition`, stage maps, resource groups and their modes, the context a stage file needs,
-`deployer_roles` and the shape of `wiring.access`. The numbered list in the script's
+`deployer_roles`, the shape of `wiring.access` and every role assignment of the wiring (both
+ends, the role, and that no resource carries one). The numbered list in the script's
 docstring is the complete one; it is kept there so it cannot drift from the code.
 
 The Shape example above is tested: `tests/run_spec_tests.py` lifts it out of this file and

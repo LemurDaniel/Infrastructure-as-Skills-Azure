@@ -16,7 +16,11 @@ enabled with an app and no application-insights resource fails; with the compone
 the workspace written as `{}`. An access line with a key other than from, to and label (an
 unquoted comma in the label) or without its target fails, and so does an enum value outside its
 question's `accepts`, on a resource and on the deployment, and a resource key that is no
-question of its set, sits in another group, or sits directly under the resource. A mutation whose text is no
+question of its set, sits in another group, or sits directly under the resource. A role assignment is
+wiring: `from` a resource of the spec or a principal outside it as { existing: entra_group | principal }
+with its id or an open entry, `to` a resource of the spec, a built-in role, one list for every stage -
+each departure fails, a role recorded on its target among them. A keyless resource that another one
+reaches warns until that one holds a role on it or an open entry names the roles. A mutation whose text is no
 longer in the fixture fails the run: a test that cannot break anything proves nothing. Last, the
 Shape example of references/spec.md must pass the check and be in write_spec.py's canonical form,
 so the reference cannot show a spec the plugin would refuse. On it, a per_environment range or
@@ -53,7 +57,7 @@ SCHEME_LIFECYCLE = "  resource_group_scheme: { value: lifecycle, source: asked }
 SCOPE_RG = "  deployment_scope: { value: resource_group, source: asked }\n"
 ISOLATION_RG ="  stage_isolation: { value: resource_group, source: asked }\n"
 GRANT_SUB = "      - { role: Contributor, scope: subscription, for: [deployment.resource_groups_created] }\n"
-GRANT_RBAC = "      - { role: Role Based Access Control Administrator, scope: resource_group, for: [resources.key-vault] }\n"
+GRANT_RBAC = "      - { role: Role Based Access Control Administrator, scope: resource_group, for: [wiring.role_assignments] }\n"
 GRANT_KV = "      - { role: Key Vault Secrets Officer, scope: key-vault, for: [resources.key-vault.security.secret_placeholders] }\n"
 LOCAL_AUTH_LINE = "  local_auth: { value: disabled, source: default }\n"
 MONITORING = "  application_monitoring: { value: enabled, source: default }\n"
@@ -142,6 +146,21 @@ SHAPE_EDITS = [
      None),
 ]
 
+# The fixture's one role assignment, and principals outside the spec that are valid: a group
+# with its object id, a workload identity whose id an open entry asks for.
+ROLE = "      - { from: app-service, to: key-vault, role: Key Vault Secrets User }\n"
+ROLES_OPEN = ("\nopen:\n  - key: wiring.role_assignments\n    question: Which identity reads the vault?\n"
+              "    owner: identity team\n    blocks: apply\n")
+ROLE_PASSES = [
+    ('a group outside the spec with its object id',
+     ROLE.replace('from: app-service', 'from: { existing: entra_group, id: { production: 22222222-3333-4444-5555-666666666666 } }'), ''),
+    ('a workload identity outside the spec whose id is an open entry',
+     ROLE.replace('from: app-service', 'from: { existing: principal }'), ROLES_OPEN),
+]
+# A keyless resource someone reaches: the fixture's app reaches the storage account.
+KEYLESS = "    security:\n      local_auth: { value: disabled, source: deployment }\n"
+KEYLESS_WARNING = 'resources.storage-account is keyless (local_auth: disabled) and reached by app-service'
+
 # The fixture's storage account up to its first group: its meta comes first.
 STORAGE = "  storage-account:\n    meta:\n      purpose: { value: Product images, source: stated }\n"
 
@@ -164,7 +183,7 @@ MUTATIONS = [
     ('a concern placement under the lifecycle scheme', SCHEME, SCHEME_LIFECYCLE, "'data' is not a role of the lifecycle scheme"),
     ('a scheme under a single layout', LAYOUT, "  resource_group_layout: { value: single, source: asked }\n", 'resource_group_scheme is stale'),
     ('forced_by names a key the spec does not have', 'forced_by: deployment.address_space }', 'forced_by: deployment.adress_space }', "forced_by 'deployment.adress_space', which is neither a key in this spec"),
-    ('forced_by lists a key the spec does not have', 'resources.key-vault.identity.role_assignments,', 'resources.key-vault.identity.role_asignments,', "forced_by 'resources.key-vault.identity.role_asignments'"),
+    ('forced_by lists a key the spec does not have', 'wiring.role_assignments,', 'wiring.role_asignments,', "forced_by 'wiring.role_asignments'"),
     ('a placement without its reason', 'source: { overridden: the vault is kept with the data it protects }', "source: { overridden: '' }", 'overridden with no reason'),
     ('a pointer beside its source', 'source: { overridden: the vault is kept with the data it protects }',
      'source: overridden, reason: the vault is kept with the data it protects', 'carries reason beside its source'),
@@ -180,8 +199,30 @@ MUTATIONS = [
     ('a grant without a scope', GRANT_KV, GRANT_KV.replace(' scope: key-vault,', ''), 'not a list of { role, scope, for }'),
     ('a created group under resource-group stage isolation', CREATED, CREATED + ISOLATION_RG, "resource group 'application' is created (resource_groups_created) under stage_isolation resource_group"),
     ('a subscription grant under resource-group stage isolation', CREATED, CREATED + ISOLATION_RG, 'grants Contributor on subscription under stage_isolation'),
-    ('a role granted to an identity the spec does not have', "            - { principal: app-service, role: Key Vault Secrets User }\n",
-     "            - { principal: user-assigned-identity__gone, role: Key Vault Secrets User }\n", "'user-assigned-identity__gone', which is not a resource"),
+    ('a role granted to an identity the spec does not have', ROLE, ROLE.replace('from: app-service', 'from: user-assigned-identity__gone'),
+     "'user-assigned-identity__gone' is not a resource of this spec"),
+    ('a role granted to a name', ROLE, ROLE.replace('from: app-service', 'from: sg-shop-operators'),
+     "'sg-shop-operators' is not a resource of this spec - `from` is a resource key"),
+    ('a role on a resource the spec does not have', ROLE, ROLE.replace('to: key-vault', 'to: key-vault__gone'),
+     "'key-vault__gone' is not a resource of this spec - the role has no scope"),
+    ('a role with a field beyond from, to and role', ROLE, ROLE.replace(' }', ', scope: account }'),
+     'is not { from, to, role } (unknown: scope)'),
+    ('a role that is no built-in role', ROLE, ROLE.replace('Key Vault Secrets User', 'Key Vault Secret Reader'),
+     "'Key Vault Secret Reader' is not a built-in role"),
+    ('a principal outside the spec with no id and no open entry', ROLE, ROLE.replace('from: app-service', 'from: { existing: entra_group }'),
+     'references an existing entra_group with no id and no open entry'),
+    ('a principal outside the spec whose id is no object id', ROLE,
+     ROLE.replace('from: app-service', 'from: { existing: entra_group, id: { production: sg-shop-operators } }'),
+     'which is not an object id (GUID)'),
+    ('a principal outside the spec of a kind that is no principal', ROLE, ROLE.replace('from: app-service', 'from: { existing: storage_account }'),
+     'a principal outside the spec is { existing: entra_group | principal }, not existing: storage_account'),
+    ('a resource of the spec written as a reference', ROLE, ROLE.replace('from: app-service', 'from: { resource: app-service }'),
+     '`from` is a resource key of this spec as plain text'),
+    ('role assignments split by stage', "    value:\n" + ROLE, "    value:\n      production:\n  " + ROLE,
+     'wiring.role_assignments is split by stage'),
+    ('a role recorded on its target', STORAGE + "    networking:\n",
+     STORAGE + "    identity:\n      role_assignments: { value: [], source: default }\n    networking:\n",
+     'resources.storage-account.identity.role_assignments names no question of the storage-account set - a role on a resource is wiring'),
     ('a created group at resource-group scope', CREATED, CREATED + SCOPE_RG, "resource group 'application' is created (resource_groups_created) under deployment_scope resource_group"),
     ('subscription scope under resource-group stage isolation', CREATED,
      CREATED + ISOLATION_RG + SCOPE_RG.replace('resource_group,', 'subscription,'), 'deployment_scope is subscription under stage_isolation'),
@@ -386,6 +427,28 @@ def main():
         rc, out = run(text)
         report(rc == 0, 'application monitoring with its component stays valid', out[-400:])
 
+    for name, replace, appended in ROLE_PASSES:
+        if base.count(ROLE) != 1:
+            report(False, name, f"the fixture no longer holds once: {ROLE!r}")
+            continue
+        rc, out = run(base.replace(ROLE, replace) + appended)
+        report(rc == 0 and 'Contract ok' in out, name, out[-500:])
+
+    keyless_at = STORAGE + "    networking:\n"
+    if base.count(keyless_at) != 1 or base.count(ROLE) != 1:
+        for name in ('warns', 'a role', 'an open entry', 'not keyless'):
+            report(False, f"a keyless resource that is reached ({name})", 'the fixture no longer holds the storage account or the role once')
+    else:
+        keyless = base.replace(keyless_at, STORAGE + KEYLESS + "    networking:\n")
+        rc, out = run(base)
+        report(rc == 0 and KEYLESS_WARNING not in out, 'a reached resource that is not keyless does not warn', out[-500:])
+        rc, out = run(keyless)
+        report(rc == 0 and KEYLESS_WARNING in out, 'a keyless resource reached by one that holds no role on it warns', out[-500:])
+        rc, out = run(keyless.replace(ROLE, ROLE + "      - { from: app-service, to: storage-account, role: Storage Blob Data Reader }\n"))
+        report(rc == 0 and KEYLESS_WARNING not in out, 'the same resource with a role for its caller does not warn', out[-500:])
+        rc, out = run(keyless + ROLES_OPEN)
+        report(rc == 0 and KEYLESS_WARNING not in out, 'the same resource with the roles named by an open entry does not warn', out[-500:])
+
     shape = shape_example()
     if shape is None:
         report(False, 'the Shape example of spec.md passes', "references/spec.md has no ```yaml block under '## Shape'")
@@ -457,7 +520,7 @@ def main():
         report(rc == 0 and subnet_warning not in out, 'an Azure-style name with azure_name does not warn', out[-500:])
 
     print('-' * 70)
-    total = 14 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS)
+    total = 18 + len(MUTATIONS) + len(COMPONENT_MUTATIONS) + len(SHAPE_MUTATIONS) + len(ROLE_PASSES)
     print(f"{total - failed}/{total} passed")
     return 1 if failed else 0
 

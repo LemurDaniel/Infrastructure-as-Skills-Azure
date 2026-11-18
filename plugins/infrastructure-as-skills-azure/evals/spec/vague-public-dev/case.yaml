@@ -70,12 +70,13 @@ graders:
     flags: m
     match: not_contains
 
-  # With shared keys off nobody can use the account until a role is assigned: open.
+  # With shared keys off nobody can use the account until a role is assigned: an open entry
+  # for the wiring, where roles are recorded.
   - name: open-role-assignments
     type: regex
     weight: 2
     target: { source: file, path: infra/infra-spec.yaml }
-    pattern: '^open:[\s\S]*role_assignments'
+    pattern: '^open:[\s\S]*key:\s*\W?wiring\.role_assignments\b'
     flags: m
 
   - name: no-invented-subscription

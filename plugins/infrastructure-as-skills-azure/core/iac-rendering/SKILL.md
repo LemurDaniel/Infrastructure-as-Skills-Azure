@@ -52,7 +52,7 @@ hand-over. The digest's literal is the one to write; a `gap` is rendered the way
 | `composition` | The module split. One `modules` entry is a directory (Terraform) or a file (Bicep) |
 | `context` | Variables/parameters shared by every module, resolved once |
 | `resources.<id>` | Decisions → attributes and literals, via the resource's `render-map.yaml` (the digest prints them) and its rendering reference |
-| `wiring` | Renders into the root, never into a module — only the caller sees both ends. `role_assignments` (`{ from, to, role }`) are one assignment each at the target's scope; `secrets` (`{ app, setting, vault, secret_name }`) are an app setting holding the Key Vault reference of that secret - on Container Apps a secret with its Key Vault URL and the environment variable naming it - resolved with the application's identity, never a value ([spec.md](../iac-authoring/references/spec.md#patterns-and-the-wiring)) |
+| `wiring` | Renders into the root, never into a module — only the caller sees both ends. `role_assignments` (`{ from, to, role }`) are one assignment each at the target's scope - through the target's module interface or standalone, the principal id from the source's module or the stage file: [role-assignments.md](references/role-assignments.md); `secrets` (`{ app, setting, vault, secret_name }`) are an app setting holding the Key Vault reference of that secret - on Container Apps a secret with its Key Vault URL and the environment variable naming it - resolved with the application's identity, never a value ([spec.md](../iac-authoring/references/spec.md#patterns-and-the-wiring)) |
 | `_target_overrides` | Target-specific escape hatches, each `{ value, reason }`; the reason becomes the comment in the code |
 
 The digest reads the spec for the render; the schema behind it is
@@ -97,7 +97,8 @@ there when the digest does not explain it, never infer the shape from an example
    review.
 7. **Render the tests with the code, not after it.** Every decision under `resources:`
    in the spec is asserted by exactly one test, and a decision that cannot be observed in
-   a plan is marked as such with its reason. A render without its tests is not finished —
+   a plan is marked as such with its reason; `wiring.role_assignments` is asserted too, once
+   per target its entries land on. A render without its tests is not finished —
    the tests are what make "the code matches the spec" a check instead of a claim, and
    what makes the next re-render a diff instead of a review. The shape per target is in
    the idiom file; `scripts/check_render_coverage.py` fails on an unasserted decision.

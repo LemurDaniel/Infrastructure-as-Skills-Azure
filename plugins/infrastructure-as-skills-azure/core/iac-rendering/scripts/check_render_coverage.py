@@ -26,9 +26,15 @@ Bicep, as entries of a `.armtest.yaml` list (run by run_arm_tests.py):
 Each kind of test file present is checked on its own: a directory holding
 both must cover every decision in both.
 
+`wiring.role_assignments` is a decision too, the one that is no resource's: a
+spec that assigns roles needs at least one marker for it. It is one list that
+renders on several targets, so it may carry several markers - an assert per
+target, a not-testable where a module's interface hides the assignment.
+
 Then:
   1. A decision with neither marker is unasserted. Error.
-  2. A decision with both, or marked twice, is ambiguous. Error.
+  2. A decision with both, or marked twice, is ambiguous. Error (but for
+     `wiring.role_assignments`, see above).
   3. A not-testable marker without a reason after the dash is a silence
      dressed up as a sentence. Error.
   4. A marker naming a decision the spec does not have is stale - the spec
@@ -65,6 +71,8 @@ COMMENT_OR_BLANK_RE = re.compile(r'^\s*(#.*)?$')
 ASSERT_RE = re.compile(r'^\s*assert\s*\{')
 COMMENT_TEXT_RE = re.compile(r'^\s*#\s*(\S.*)$')
 MARKER_RE = re.compile(r'^\s*#\s*(decision|not-testable):')
+# The decision that is no resource's and renders on several targets: one marker per target.
+ROLES = 'wiring.role_assignments'
 
 
 def main():
@@ -134,6 +142,10 @@ def main():
 
     if isinstance(doc, dict) and 'resources' in doc:
         find(doc['resources'], '')
+    roles = (doc.get('wiring') or {}).get('role_assignments') if isinstance(doc, dict) else None
+    roles = roles.get('value') if isinstance(roles, dict) and 'value' in roles else roles
+    if decisions and roles:
+        decisions.append(ROLES)
 
     say(f"Render coverage - {spec_path}", 'cyan')
     print('-' * 70)
@@ -154,7 +166,7 @@ def main():
                 m = DECISION_RE.match(line)
                 if m:
                     did = m.group(1)
-                    if did in asserted:
+                    if did in asserted and did != ROLES:
                         errors.append(f"{did} is asserted twice ({asserted[did]} and {where}); one assert per decision")
                     asserted[did] = where
                     # The next non-blank, non-comment line has to open an assert block.
@@ -179,7 +191,7 @@ def main():
                         j += 1
                     if not reason:
                         errors.append(f"{did} at {where} is marked not-testable without a reason after the dash")
-                    if did in marked:
+                    if did in marked and did != ROLES:
                         errors.append(f"{did} is marked not-testable twice ({marked[did]} and {where})")
                     marked[did] = where
         return errors, asserted, marked
@@ -203,7 +215,7 @@ def main():
                     continue
                 if 'decision' in entry:
                     did = str(entry['decision'])
-                    if did in asserted:
+                    if did in asserted and did != ROLES:
                         errors.append(f"{did} is asserted twice ({asserted[did]} and {where}); one assert per decision")
                     asserted[did] = where
                     if not entry.get('path') or not any(k in entry for k in ('equals', 'contains', 'matches', 'absent')):
@@ -212,7 +224,7 @@ def main():
                     did = str(entry['not_testable'])
                     if not str(entry.get('reason', '')).strip():
                         errors.append(f"{did} at {where} is marked not_testable without a reason")
-                    if did in marked:
+                    if did in marked and did != ROLES:
                         errors.append(f"{did} is marked not_testable twice ({marked[did]} and {where})")
                     marked[did] = where
         return errors, asserted, marked
@@ -230,18 +242,18 @@ def main():
         covered = 0
         for d in decisions:
             a, n = d in asserted, d in marked
-            if a and n:
+            if a and n and d != ROLES:
                 errors.append(f"{kind}: {d} is both asserted ({asserted[d]}) and marked not-testable ({marked[d]}) - pick one")
             elif not a and not n:
                 errors.append(f"{kind}: {d} is neither asserted nor marked not-testable")
             else:
                 covered += 1
         for did in list(asserted) + list(marked):
-            if did not in decisions:
+            if did not in decisions and did != ROLES:
                 where = asserted.get(did, marked.get(did))
                 errors.append(f"{kind}: {did} (marker at {where}) is not a decision in the spec - stale marker")
 
-        ok(f"{kind} - {len(decisions)} decision(s) in resources:, {len(asserted)} asserted, {len(marked)} marked not-testable, {len(files)} test file(s)")
+        ok(f"{kind} - {len(decisions)} decision(s) in resources: and wiring.role_assignments, {len(asserted)} asserted, {len(marked)} marked not-testable, {len(files)} test file(s)")
         for did in sorted(marked):
             say(f"  not-testable: {did} ({marked[did]})", 'gray')
 

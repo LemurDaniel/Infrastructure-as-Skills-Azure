@@ -166,7 +166,7 @@ that lands in one of these lands the same way on every resource:
 | `deployment.private_dns_records: deployment` | `private_dns_zone_resource_ids = [<zone id>]` per endpoint | `privateDnsZoneGroup: { privateDnsZoneGroupConfigs: [ { privateDnsZoneResourceId } ] }` |
 | `diagnostic_workspace`, `diagnostic_categories`, `metrics_enabled` | `diagnostic_settings = { <key> = { workspace_resource_id, log_categories, log_groups, metric_categories } }` (sets of names; `log_groups` defaults to `["allLogs"]`, so it is set empty beside `log_categories`). **Three modules use the older object form** - `logs = [{ category }]`, `metrics = [{ category }]` - namely `web-site`, `web-serverfarm` and `insights-component`, and the storage account's per-service variants (`diagnostic_settings_blob`); read the Type block of the pinned version | `diagnosticSettings: [ { workspaceResourceId, logCategoriesAndGroups: [ { categoryGroup } ], metricCategories: [ { category } ] } ]` (nested under the service object where the resource has them, e.g. `blobServices.diagnosticSettings`) |
 | `managed_identity` | `managed_identities = { system_assigned = true, user_assigned_resource_ids = [] }` | `managedIdentities: { systemAssigned: true, userAssignedResourceIds: [] }` |
-| `role_assignments` | `role_assignments = { <key> = { role_definition_id_or_name, principal_id, principal_type } }` | `roleAssignments: [ { roleDefinitionIdOrName, principalId, principalType } ]` |
+| `wiring.role_assignments`, the entries with the resource as `to` ([role-assignments.md](role-assignments.md)) | `role_assignments = { <key> = { role_definition_id_or_name, principal_id, principal_type } }` | `roleAssignments: [ { roleDefinitionIdOrName, principalId, principalType } ]` |
 | `key_management: customer_managed` | `customer_managed_key = { key_vault_resource_id, key_name, user_assigned_identity = { resource_id } }` | `customerManagedKey: { keyVaultResourceId, keyName, userAssignedIdentityResourceId }` |
 | `deployment.resource_lock` | `lock = { kind = "CanNotDelete" }` | `lock: { kind: 'CanNotDelete' }` |
 | `context.tags` | `tags = local.tags` | `tags: tags` |
@@ -183,7 +183,9 @@ handover says that the lock comes off first.
 Map keys on the Terraform side are arbitrary and stable — use the decision's own key
 (`blob`, `file`) so the resource address reads as the decision does. Role assignments take
 the role **by name** in both targets (`"Storage Blob Data Contributor"`), which removes the
-GUID table the authored Bicep render needed.
+GUID table the authored Bicep render needed. When an entry of `wiring.role_assignments` goes
+through this interface and when it stands alone in the root is in
+[role-assignments.md](role-assignments.md).
 
 **Telemetry.** Every AVM module sends a deployment telemetry event to Microsoft unless
 told not to; the Terraform modules do it through the `Azure/modtm` provider, the Bicep
@@ -231,8 +233,9 @@ authored idiom and one is new:
    `parent_id = data.azurerm_resource_group.this.id` (AzAPI module) or
    `resource_group_name = var.resource_group_name` (azurerm module).
 3. **Wiring stays in the root.** The module's own interfaces (its private endpoints, its
-   role assignments) are inputs to that module; a role assignment *between* two modules is
-   root-level wiring as before.
+   role assignments) are inputs to that module, written on the call in the root; a role
+   assignment whose principal's module already needs the target stands alone in the root
+   ([role-assignments.md](role-assignments.md)).
 4. **New: comment the decision key on inputs whose name does not say it.** A bool
    `public_network_access_enabled = false` under a spec that says
    `public_network_access: disabled` carries `# decision: storage-account.networking.public_network_access`
@@ -289,7 +292,8 @@ AVM render (a storage account on a referenced platform, storage module v0.10.0, 
   carry `# not-testable: <key> - set through the module's <input>; the module's own
   tests cover the mapping`. For the storage account that is nine of twenty-four
   decisions: the five blob-service ones, the three diagnostic ones, and
-  `role_assignments`; plus `private_endpoint_subnet`, whose id goes into the endpoint
+  `wiring.role_assignments` where its entries go through the interface; plus
+  `private_endpoint_subnet`, whose id goes into the endpoint
   child module. That sentence is the honest state: the module's test suite is part of
   the verification story, and the marker says which decisions lean on it.
 - **The module's own tests are not re-run here.** They ran before the version was

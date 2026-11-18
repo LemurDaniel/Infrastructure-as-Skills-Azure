@@ -382,6 +382,28 @@ A new decision that more than one resource carries follows the same rule: one id
 unchanged on every set that has it, and decision words as values - what is decided, not how
 one provider spells or negates it.
 
+## Roles are not a question
+
+**A resource set asks no `role_assignments` and no `data_plane_role_assignments`.** A role is a
+relationship between two parts of a system - who holds it, and on what - so it has two ends
+and belongs to neither: the spec records it once, in `wiring.role_assignments`
+([spec.md](spec.md#role-assignments)), with the resource as `to`. Asked per resource, the same
+grant had two places to stand and each reader looked in the other one.
+
+What a set knows about roles stays with the set, as knowledge rather than as a question:
+
+- `boundaries:` carries the line that roles on this resource are `wiring.role_assignments`
+  entries with it as `to`;
+- `notes.md` carries a section *Roles* - which roles the service has, which is the narrow
+  one, what does not work until one is assigned;
+- `terraform.md` and `bicep.md` carry only what is particular to the resource's module (an
+  input under another name, a module without one); how an entry renders is
+  [role-assignments.md](../../iac-rendering/references/role-assignments.md).
+
+Rights *inside* a service that a statement creates and no Azure role grants - `database_users`,
+`database_roles` - are decisions of that resource and stay questions of its set.
+`check_question_set.py` fails on the two ids.
+
 ## Rules that matter
 
 **Default to the secure value, not the portal default.** Azure ships public network access

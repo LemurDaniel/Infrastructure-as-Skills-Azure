@@ -64,6 +64,7 @@ LABELS = {
         'connections_intro': 'The connections between the parts, the rights each one holds on another, and where a secret is read from.',
         'c_access': 'Connections', 'c_roles': 'Rights', 'c_secrets': 'Secrets',
         'c_role': '{who} holds the role *{role}* on {what}',
+        'p_entra_group': 'A group of people outside this deployment', 'p_principal': 'An identity outside this deployment',
         'c_secret': '{app} reads the secret `{secret}` from {vault} (setting `{setting}`); its value is never in the code',
         'actors': {'users': 'Users', 'internet': 'Internet'},
         'answers': 'What follows from your answers',
@@ -107,6 +108,7 @@ LABELS = {
         'connections_intro': 'Die Verbindungen zwischen den Teilen, die Rechte, die ein Teil auf einem anderen hat, und woher ein Geheimnis gelesen wird.',
         'c_access': 'Verbindungen', 'c_roles': 'Rechte', 'c_secrets': 'Geheimnisse',
         'c_role': '{who} hat die Rolle *{role}* auf {what}',
+        'p_entra_group': 'Eine Personengruppe außerhalb dieses Deployments', 'p_principal': 'Eine Identität außerhalb dieses Deployments',
         'c_secret': '{app} liest das Geheimnis `{secret}` aus {vault} (Einstellung `{setting}`); der Wert steht nie im Code',
         'actors': {'users': 'Benutzer', 'internet': 'Internet'},
         'answers': 'Was aus euren Antworten folgt',
@@ -225,8 +227,8 @@ class Renderer:
                 return f"{value['part']} ({value['resource']})" if value.get('part') else str(value['resource'])
             return spec_ref.label(value) or self.L['existing']
         if isinstance(value, dict):
-            # a role granted to a principal, a subnet handed to a service, a role on a scope: pairs read as "who (what)"
-            for who, what in (('principal', 'role'), ('subnet', 'service'), ('role', 'scope')):
+            # a subnet handed to a service, a role on a scope: pairs read as "who (what)"
+            for who, what in (('subnet', 'service'), ('role', 'scope')):
                 if who in value and what in value:
                     return f"{value[who]} ({value[what]})"
             if 'name' in value:
@@ -602,7 +604,12 @@ def main():
             return [f"{part(a.get('from'))} → {part(a.get('to'))}" + (f": {a['label']}" if a.get('label') else '')
                     for a in wiring_lines('access')]
         if section == 'role_assignments':
-            return [L['c_role'].format(who=part(r.get('from')), role=r.get('role'), what=part(r.get('to')))
+            # `from` is a resource of the spec, or a principal outside it as { existing: <kind> }
+            def who(src):
+                if isinstance(src, dict):
+                    return L.get('p_' + str(src.get('existing')), L['p_principal'])
+                return part(src)
+            return [L['c_role'].format(who=who(r.get('from')), role=r.get('role'), what=part(r.get('to')))
                     for r in wiring_lines('role_assignments')]
         if section == 'secrets':
             return [L['c_secret'].format(app=part(x.get('app')), secret=x.get('secret_name'), vault=part(x.get('vault')),

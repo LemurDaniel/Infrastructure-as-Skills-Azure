@@ -21,7 +21,9 @@ Read-only. Checks what the contract in references/spec.md promises:
      distinction the exit code makes.
   4a. A resource decision is resources.<resource>.<group>.<question>, naming a
      question of the resource's set in that group (placement.resource_group and
-     placement.location are every resource's).
+     placement.location are every resource's). A role on a resource is no question of
+     its set (`role_assignments`, `data_plane_role_assignments`): it is an entry of
+     `wiring.role_assignments` with the resource as `to`.
   4b. An `enum` value, or each item of a `list` whose `accepts` is a list, is one
      its question accepts - per stage where the value is split by stage.
   5. No decision key uses a backend's attribute spelling
@@ -68,10 +70,18 @@ Read-only. Checks what the contract in references/spec.md promises:
      reason, not `context.location`, never under `data_residency: country`.
   9g. Wiring: an access line runs between resources of the spec and actors (users,
      internet, external:<name>); a role assignment in `wiring.role_assignments` is
-     { from, to, role } onto a resource of the spec with a role of built-in-roles.yaml (a
-     role Microsoft renamed is a warning naming the current name); a
+     { from, to, role }, one list for every stage: `to` a resource of the spec, `from` a
+     resource of the spec (its identity holds the role) or a principal outside it as a
+     reference { existing: entra_group | principal } with an id per stage or an open entry
+     naming `wiring.role_assignments`, `role` a role of built-in-roles.yaml (a role
+     Microsoft renamed is a warning naming the current name); a
      `wiring.secrets` line is { app, setting, vault, secret_name } naming an application and a
      key vault of the spec and a secret the vault's `secret_placeholders` creates.
+  9i. A keyless resource someone reaches has a role for them: a resource whose `local_auth`
+     is `disabled` and that another resource reaches (`wiring.access`) while no
+     `wiring.role_assignments` entry from that resource's identity (itself, or a
+     user-assigned identity it names) is on it or on a resource inside it, and no open
+     entry names `wiring.role_assignments`. A warning: the first call would be refused.
   9h. Pattern: `pattern.id` names a pattern the plugin ships and `pattern.answers` its
      asks, each a value the ask accepts. A value recorded `source: pattern` is exactly
      what that pattern answers for those answers - a resource decision, or a wiring list
@@ -79,8 +89,8 @@ Read-only. Checks what the contract in references/spec.md promises:
      `{ overridden: <reason> }`). `source: pattern` without a pattern fails.
  10. Deployer roles: what the spec asks of the identity that deploys is in
      `deployment.deployer_roles` - `Contributor` on `subscription` for a
-     `create` group, `Role Based Access Control Administrator` for any role
-     assignment, `Key Vault Secrets Officer` on each vault with secret
+     `create` group, `Role Based Access Control Administrator` for any entry of
+     `wiring.role_assignments`, `Key Vault Secrets Officer` on each vault with secret
      placeholders, `Contributor` on `subscription` too for deployment_scope
      subscription. A `create` group under deployment_scope resource_group is an
      error. A `wiring.access` line is { from, to, label? } and nothing else. A missing role is an error; a spec without the key is a
@@ -134,6 +144,12 @@ import pattern_lib  # noqa: E402 - a pattern resolved for its answers
 # Resource keys every resource may carry without its set asking them (spec.md: placement, meta).
 BUILTIN_RESOURCE_KEYS = {('placement', 'resource_group'), ('placement', 'location'), ('meta', 'purpose')}
 RG_LOCKS = ['production', 'all_stages', 'none']
+# A role on a resource is a relationship between two parts, so it is wiring and no question of
+# a resource set: these ids are refused as a resource decision.
+ROLE_QUESTION_IDS = ('role_assignments', 'data_plane_role_assignments')
+# What a principal outside the spec may be (ref-kinds.yaml): a group of people, or a workload
+# identity - both an Entra object id per stage.
+PRINCIPAL_KINDS = ('entra_group', 'principal')
 # A role satisfies a need when it is the narrow one or broader; broader is the platform's call.
 ROLES_ASSIGN = ['Role Based Access Control Administrator', 'User Access Administrator', 'Owner']
 ROLES_SECRETS = ['Key Vault Secrets Officer', 'Key Vault Administrator', 'Owner']
@@ -230,6 +246,7 @@ def main():
                 open_keys.add(str(o['key']))
             for e in (o.get('environments') or []):
                 open_stages.setdefault(str(o['key']), set()).add(e)
+    open_whole = set(open_keys)   # the keys an entry names for every stage
     stage_maps = 0
     try:
         questions = load_question_index(yaml)
@@ -285,7 +302,10 @@ def main():
         if tuple(parts[2:]) in BUILTIN_RESOURCE_KEYS:
             return
         q = questions.get((res, parts[3]))
-        if q is None:
+        if q is None and parts[3] in ROLE_QUESTION_IDS:
+            errors.append(f"{path} names no question of the {res} set - a role on a resource is wiring: "
+                          f"an entry {{ from: <identity>, to: {parts[1]}, role: <role> }} in wiring.role_assignments")
+        elif q is None:
             errors.append(f"{path} names no question of the {res} set - an invented key reaches no renderer")
         elif q.get('_group') != parts[2]:
             errors.append(f"{path} is in group '{parts[2]}', but the {res} set asks {parts[3]} in '{q.get('_group')}'")
@@ -642,37 +662,7 @@ def main():
             errors.append(f"{where} '{value}' under data_residency country - the data stays in the country of "
                           f"context.location; the model is a named gap, or the customer revisits the residency")
 
-    # --- 9b. role assignments name resources that exist ------------------------
-    # A principal spelled like a resource key (a set name, `__instance` optional) must be one
-    # of the spec's resources; a group or a person by name is not checked.
-    set_names = {owner for owner, _ in questions if owner != 'deployment'}
     res_keys = set((get(spec, 'resources') or {}).keys())
-
-    def principals(v):
-        if isinstance(v, dict):
-            if 'principal' in v:
-                yield v['principal']
-            else:
-                for x in v.values():
-                    yield from principals(x)
-        elif isinstance(v, list):
-            for x in v:
-                yield from principals(x)
-
-    for rkey, rnode in (get(spec, 'resources') or {}).items():
-        for gid, gnode in (rnode or {}).items() if isinstance(rnode, dict) else []:
-            ra_node = get(gnode, 'role_assignments')
-            if not isinstance(ra_node, dict):
-                continue
-            for p in sorted({str(p) for p in principals(ra_node.get('value'))}):
-                if p.split('__')[0] in set_names and p not in res_keys:
-                    errors.append(f"resources.{rkey}.{gid}.role_assignments grants a role to '{p}', which is not a resource "
-                                  f"of this spec - a renamed or removed identity leaves its grants behind")
-    for a in (get(get(spec, 'wiring'), 'role_assignments') or {}).get('value') or [] if isinstance(get(get(spec, 'wiring'), 'role_assignments'), dict) else []:
-        for side in ('from', 'to'):
-            p = str(get(a, side) or '')
-            if p.split('__')[0] in set_names and p not in res_keys:
-                errors.append(f"wiring.role_assignments names '{p}' ({side}), which is not a resource of this spec")
 
     # A purpose belongs to its resource, not to the wiring between resources.
     if get(get(spec, 'wiring'), 'purposes') is not None:
@@ -721,14 +711,37 @@ def main():
         renamed_roles = pattern_lib.load_renamed_roles(yaml)
     except (yaml.YAMLError, OSError):
         rbac_roles, data_plane_roles, renamed_roles = set(), set(), {}
+    roles_value = get(get(wiring_node, 'role_assignments'), 'value')
+    if environments and isinstance(roles_value, dict) and roles_value and all(k in environments for k in roles_value):
+        errors.append("wiring.role_assignments is split by stage - a role is a relationship between two parts of the "
+                      "system and holds in every stage: one list of { from, to, role }")
     for r in wiring_list('role_assignments'):
-        where = f"wiring.role_assignments {r.get('from')} -> {r.get('to')}"
+        src = r.get('from')
+        outside = isinstance(src, dict)
+        shown = (f"existing {src.get('existing')}" if 'existing' in src else str(src)) if outside else src
+        where = f"wiring.role_assignments {shown} -> {r.get('to')}"
         extra = sorted(str(k) for k in r if k not in ('from', 'to', 'role'))
-        if extra or not all(isinstance(r.get(k), str) and r.get(k) for k in ('from', 'to', 'role')):
+        if extra or not all(isinstance(r.get(k), str) and r.get(k) for k in ('to', 'role')) or not src \
+                or not isinstance(src, (str, dict)):
             errors.append(f"{where} is not {{ from, to, role }}" + (f" (unknown: {', '.join(extra)})" if extra else ''))
             continue
         if r['to'] not in res_keys:
-            errors.append(f"{where}: '{r['to']}' is not a resource of this spec - the role has no scope")
+            errors.append(f"{where}: '{r['to']}' is not a resource of this spec - the role has no scope; a narrower "
+                          f"scope is a narrower resource of the spec, a scope outside it a role-assignment resource")
+        if not outside:
+            if src not in res_keys:
+                errors.append(f"{where}: '{src}' is not a resource of this spec - `from` is a resource key (its identity "
+                              f"holds the role) or a principal outside the spec as {{ existing: {' | '.join(PRINCIPAL_KINDS)} }}")
+        elif 'existing' not in src:
+            errors.append(f"{where}: `from` is a resource key of this spec as plain text, or a principal outside it as "
+                          f"{{ existing: {' | '.join(PRINCIPAL_KINDS)} }} - nothing else")
+        elif src['existing'] not in PRINCIPAL_KINDS:
+            errors.append(f"{where}: a principal outside the spec is {{ existing: {' | '.join(PRINCIPAL_KINDS)} }}, "
+                          f"not existing: {src['existing']}")
+        else:
+            # checked like any other reference: an object id per stage, or an open entry naming the key
+            errors.extend(spec_ref.check('wiring.role_assignments', src, src['existing'], ref_kinds,
+                                         get(spec, 'resources') or {}, environments, open_stages, open_whole))
         if r['role'] in renamed_roles:
             # a warning: the definition id is the same, and a spec written before the rename is valid
             warnings.append(f"{where}: '{r['role']}' is called '{renamed_roles[r['role']]}' now (same role definition) - "
@@ -753,6 +766,53 @@ def main():
         if sref['secret_name'] not in names:
             errors.append(f"{where}: secret '{sref['secret_name']}' is not in resources.{sref['vault']}.security.secret_placeholders - "
                           f"the reference resolves to nothing at the first start")
+
+    # --- 9i. a keyless resource that is reached has a role for the caller --------
+    # With local authentication off, a caller gets in by a role or not at all. The role is on
+    # the resource or on one inside it (a container of the account, a secret of the vault: a
+    # resource that references it), held by the caller itself or by a user-assigned identity
+    # it names. A warning - the roles may be granted outside the spec.
+    def decisions_of(rnode):
+        for gnode in (rnode or {}).values() if isinstance(rnode, dict) else []:
+            for qid, d in (gnode.items() if isinstance(gnode, dict) else []):
+                if isinstance(d, dict) and 'value' in d:
+                    yield qid, d['value']
+
+    def referenced(rnode):
+        found = set()
+
+        def scan(v):
+            if isinstance(v, dict):
+                if isinstance(v.get('resource'), str):
+                    found.add(v['resource'])
+                for x in v.values():
+                    scan(x)
+            elif isinstance(v, list):
+                for x in v:
+                    scan(x)
+        for _, v in decisions_of(rnode):
+            scan(v)
+        return found
+
+    all_resources = get(spec, 'resources') or {}
+    role_pairs = {(r.get('from'), r.get('to')) for r in wiring_list('role_assignments') if isinstance(r.get('from'), str)}
+    roles_open = 'wiring.role_assignments' in open_keys or 'wiring.role_assignments' in open_stages
+    warned = set()
+    for a in wiring_list('access'):
+        caller, target = a.get('from'), a.get('to')
+        if caller not in res_keys or target not in res_keys or caller == target or (caller, target) in warned or roles_open:
+            continue
+        local_auth = dict(decisions_of(all_resources.get(target))).get('local_auth')
+        if 'disabled' not in (local_auth.values() if isinstance(local_auth, dict) else [local_auth]):
+            continue
+        holders = {caller} | {k for k in referenced(all_resources.get(caller)) if pattern_lib.kind(k) == pattern_lib.IDENTITY_KIND}
+        scopes = {target} | {k for k, n in all_resources.items() if k != caller and target in referenced(n)}
+        if not any((h, s) in role_pairs for h in holders for s in scopes):
+            warned.add((caller, target))
+            warnings.append(f"resources.{target} is keyless (local_auth: disabled) and reached by {caller} (wiring.access), "
+                            f"but {caller} holds no role on it - no wiring.role_assignments entry from "
+                            f"{' or '.join(sorted(holders))} to {target}, so its first call is refused; name the role, "
+                            f"or write an open: entry with the key wiring.role_assignments")
 
     # --- 9h. the pattern, and what is recorded as its answer ------------------------
     # `source: pattern` is a claim a script can check: the pattern is data, so the value it
@@ -916,12 +976,7 @@ def main():
     if creates or scope == 'subscription':
         needs.append(('a resource group is created' if creates else 'the deployment runs at subscription scope',
                       ROLES_CREATE_GROUP, ['subscription'], ['deployment.resource_groups_created'] if creates else ['deployment.deployment_scope']))
-    assigning = []
     for rkey, rnode in (get(spec, 'resources') or {}).items():
-        for gnode in (rnode or {}).values() if isinstance(rnode, dict) else []:
-            d = get(gnode, 'role_assignments')
-            if isinstance(d, dict) and filled(d.get('value')):
-                assigning.append(f'resources.{rkey}')
         if str(rkey).split('__')[0] == 'key-vault':
             d = get(get(rnode, 'security'), 'secret_placeholders')
             if isinstance(d, dict) and filled(d.get('value')):
@@ -929,9 +984,7 @@ def main():
                               [f'resources.{rkey}.security.secret_placeholders']))
     d = get(get(spec, 'wiring'), 'role_assignments')
     if isinstance(d, dict) and filled(d.get('value')):
-        assigning.append('wiring.role_assignments')
-    if assigning:
-        needs.insert(0, ('roles are assigned', ROLES_ASSIGN, ['resource_group', 'subscription'], assigning))
+        needs.insert(0, ('roles are assigned', ROLES_ASSIGN, ['resource_group', 'subscription'], ['wiring.role_assignments']))
 
     granted = dep_value('deployer_roles')
     dr_errors = len(errors)
