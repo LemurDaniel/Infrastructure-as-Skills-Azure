@@ -61,7 +61,9 @@ def load_roles(yaml):
     """(Azure RBAC role names, data-plane role names) from built-in-roles.yaml."""
     with open(ROLES_FILE, encoding='utf-8') as f:
         doc = yaml.safe_load(f) or {}
-    return set(doc.get('roles') or {}), set(doc.get('data_plane') or {})
+    def names(key):
+        return {r['name'] for r in (doc.get(key) or []) if isinstance(r, dict) and r.get('name')}
+    return names('roles'), names('data_plane')
 
 
 def load_renamed_roles(yaml):

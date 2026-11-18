@@ -50,8 +50,8 @@ HEADER = """\
 # roles" page. Do not edit by hand - run the script on a fresh copy of the page.
 #
 # The one list of role names the checks accept: check_pattern.py for a pattern's
-# wiring.role_assignments, check_spec.py for a spec's. `roles` are Azure RBAC roles (name ->
-# role definition id); `data_plane` are roles of a service's own role model, assigned through
+# wiring.role_assignments, check_spec.py for a spec's. `roles` are Azure RBAC roles (name and
+# role definition id - public ids of Microsoft's role definitions, not secrets); `data_plane` are roles of a service's own role model, assigned through
 # that service and not through Microsoft.Authorization; `renamed` maps a role's former name
 # to its current one (same definition id).
 """
@@ -88,8 +88,9 @@ def main():
     doc = {
         'retrieved': args.retrieved,
         'page_dated': page_date.group(1) if page_date else None,
-        'roles': dict(sorted(roles.items(), key=lambda kv: kv[0].lower())),
-        'data_plane': DATA_PLANE,
+        # a list of name and id, not a map: a scanner reads `<...Credential>: <guid>` as a secret
+        'roles': [{'name': n, 'id': i} for n, i in sorted(roles.items(), key=lambda kv: kv[0].lower())],
+        'data_plane': [{'name': n, 'id': i} for n, i in DATA_PLANE.items()],
         'renamed': {old: new for old, new in RENAMED.items() if new in roles},
     }
     with open(args.out, 'w', encoding='utf-8', newline='\n') as f:
