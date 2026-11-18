@@ -11,10 +11,13 @@ check, the interview and the spec check cannot disagree on what a pattern says.
 
 import itertools
 import os
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
-PATTERNS = os.path.join(PLUGIN, 'patterns')
+sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'lib'))
+import plugin_lib  # noqa: E402 - where the plugin's files are
+PLUGIN = plugin_lib.PLUGIN
+PATTERNS = plugin_lib.PATTERNS
 ROLES_FILE = os.path.join(HERE, '..', 'references', 'built-in-roles.yaml')
 
 ACTORS = ('users', 'internet')              # and external:<name>
@@ -69,7 +72,7 @@ def load_renamed_roles(yaml):
 
 def kind(key):
     """The question set of a resource key: `app-service` for `app-service__chat`."""
-    return str(key).split('__')[0]
+    return plugin_lib.set_name(key)
 
 
 def is_actor(name):

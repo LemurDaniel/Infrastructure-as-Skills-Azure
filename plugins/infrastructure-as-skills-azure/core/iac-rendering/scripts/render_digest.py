@@ -50,6 +50,8 @@ REFS = os.path.join(CORE, 'iac-rendering', 'references')
 sys.path.insert(0, os.path.join(CORE, 'iac-authoring', 'scripts'))
 import spec_ref  # noqa: E402 - a reference as {resource: <key>} or {existing: <kind>}
 import spec_source  # noqa: E402 - what a decision's source says
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'lib'))
+import plugin_lib  # noqa: E402 - the printer, the paths and the set lookup every script shares
 
 PIPELINE_FILES = {'github': 'github', 'azure_devops': 'ado', 'gitlab': 'gitlab', 'local': 'local'}
 AUTHORED_MARK = '## Authored rendering'
@@ -199,13 +201,8 @@ def split_reference(path, implementation):
 
 
 def find_set(kind):
-    if not os.path.isdir(RESOURCES):
-        return None, None
-    for family in sorted(os.listdir(RESOURCES)):
-        p = os.path.join(RESOURCES, family, kind, 'questions.yaml')
-        if os.path.isfile(p):
-            return family, p
-    return None, None
+    path = plugin_lib.set_path(kind)
+    return (plugin_lib.family_of(kind), path) if path else (None, None)
 
 
 def literal(v, target):

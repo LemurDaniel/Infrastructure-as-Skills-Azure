@@ -145,6 +145,7 @@ The full tree is in [README.md](README.md#layout). What is not obvious from it:
 | `.../resources/<family>/routing.md` | Routing table: request → question set. **Not** a `SKILL.md` — see below |
 | `.../resources/<family>/<resource>/{questions.yaml,notes.md,terraform.md,bicep.md}` | **The content**, one directory per resource; the rendering references open with the AVM call |
 | `.../resources/<family>/<resource>/render-map.yaml` | What each decision renders to, per target and implementation, with the literal of every answer (`core/iac-rendering/references/render-map.md`). A changed question, input or literal changes it in the same commit; `check_render_map.py` fails on a question it misses |
+| `.../lib/plugin_lib.py` | What every script shares: where the plugin's files are, the printer and the exit codes (0 clean, 1 found something, 2 could not run), how a question set is found and read. A new script imports it; `run_arm_tests.py` does not, since the render copies it into customer repositories |
 | `.claude/skills/` | Repo maintenance. **Not** shipped with the plugin |
 
 ## The Two Structural Constraints

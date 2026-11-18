@@ -53,20 +53,10 @@ import os
 import re
 import sys
 
-COLORS = {'cyan': '36', 'green': '32', 'red': '31', 'gray': '90'}
 RUNNER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'run_arm_tests.py')
-USE_COLOR = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
-
-
-def say(text, color=None):
-    if color and USE_COLOR:
-        print(f"\033[{COLORS[color]}m{text}\033[0m")
-    else:
-        print(text)
-
-
-def ok(text): say(f"[ ok ] {text}", 'green')
-def bad(text): say(f"[fail] {text}", 'red')
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'lib'))
+import plugin_lib  # noqa: E402 - the printer, the paths and the set lookup every script shares
+say, ok, bad = plugin_lib.say, plugin_lib.ok, plugin_lib.bad
 
 
 DECISION_RE = re.compile(r'^\s*#\s*decision:\s*([A-Za-z0-9_.\-]+)\s*$')

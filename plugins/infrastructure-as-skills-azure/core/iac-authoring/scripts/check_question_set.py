@@ -107,20 +107,9 @@ RETIRED_IDS = {
 LOCAL_AUTH_VALUES = ['disabled', 'enabled']
 TLS_VERSIONS = ['1.0', '1.1', '1.2', '1.3']
 
-COLORS = {'cyan': '36', 'green': '32', 'red': '31', 'yellow': '33', 'gray': '90'}
-USE_COLOR = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
-
-
-def say(text, color=None):
-    if color and USE_COLOR:
-        print(f"\033[{COLORS[color]}m{text}\033[0m")
-    else:
-        print(text)
-
-
-def ok(text): say(f"[ ok ] {text}", 'green')
-def bad(text): say(f"[fail] {text}", 'red')
-def warn(text): say(f"[warn] {text}", 'yellow')
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'lib'))
+import plugin_lib  # noqa: E402 - the printer, the paths and the set lookup every script shares
+say, ok, bad, warn = plugin_lib.say, plugin_lib.ok, plugin_lib.bad, plugin_lib.warn
 
 
 def find_sets(paths):

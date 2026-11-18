@@ -44,6 +44,8 @@ except ImportError:
 
 HERE = Path(__file__).resolve().parent
 PLUGIN = HERE.parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'lib'))
+import plugin_lib  # noqa: E402 - the paths and the set lookup every script shares
 PLUGIN_JSON = PLUGIN / ".claude-plugin" / "plugin.json"
 DEPLOYMENT_SET = HERE.parent / "questions" / "deployment.yaml"
 WRITE_NAMING = PLUGIN / "core" / "iac-rendering" / "scripts" / "write_naming.py"
@@ -69,8 +71,8 @@ def question_sets():
         return [(g.get('id'), [q['id'] for q in g.get('questions') or [] if isinstance(q, dict) and q.get('id')])
                 for g in doc.get('groups') or [] if isinstance(g, dict)]
     sets = {'deployment': groups(DEPLOYMENT_SET)}
-    for qs in sorted((PLUGIN / 'resources').glob('*/*/questions.yaml')):
-        sets[qs.parent.name] = groups(qs)
+    for name, path in plugin_lib.set_paths().items():
+        sets[name] = groups(Path(path))
     return sets
 
 

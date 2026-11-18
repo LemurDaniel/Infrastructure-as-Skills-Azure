@@ -142,44 +142,12 @@ ROLES_CREATE_GROUP = ['Contributor', 'Owner']
 
 def load_question_index(yaml):
     """(resource or 'deployment', question id) -> question dict, from the plugin's sets."""
-    index = {}
-
-    def add(owner, doc):
-        for g in (doc.get('groups') or []) if isinstance(doc, dict) else []:
-            for q in (g.get('questions') or []):
-                if isinstance(q, dict) and q.get('id'):
-                    index[(owner, q['id'])] = dict(q, _group=g.get('id'))
-    dep = os.path.join(HERE, '..', 'questions', 'deployment.yaml')
-    if os.path.isfile(dep):
-        with open(dep, encoding='utf-8') as f:
-            add('deployment', yaml.safe_load(f))
-    res_root = os.path.join(PLUGIN, 'resources')
-    if os.path.isdir(res_root):
-        for fam in os.listdir(res_root):
-            fam_dir = os.path.join(res_root, fam)
-            if os.path.isdir(fam_dir):
-                for res in os.listdir(fam_dir):
-                    qs = os.path.join(fam_dir, res, 'questions.yaml')
-                    if os.path.isfile(qs):
-                        with open(qs, encoding='utf-8') as f:
-                            add(res, yaml.safe_load(f))
-    return index
+    return plugin_lib.question_index(yaml)
 
 
-COLORS = {'cyan': '36', 'green': '32', 'red': '31', 'yellow': '33', 'gray': '90'}
-USE_COLOR = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
-
-
-def say(text, color=None):
-    if color and USE_COLOR:
-        print(f"\033[{COLORS[color]}m{text}\033[0m")
-    else:
-        print(text)
-
-
-def ok(text): say(f"[ ok ] {text}", 'green')
-def bad(text): say(f"[fail] {text}", 'red')
-def warn(text): say(f"[warn] {text}", 'yellow')
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'lib'))
+import plugin_lib  # noqa: E402 - the printer, the paths and the set lookup every script shares
+say, ok, bad, warn = plugin_lib.say, plugin_lib.ok, plugin_lib.bad, plugin_lib.warn
 
 
 def main():

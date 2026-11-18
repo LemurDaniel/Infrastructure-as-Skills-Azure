@@ -40,6 +40,8 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'lib'))
+import plugin_lib  # noqa: E402 - the printer, the paths and the set lookup every script shares
 PLUGIN = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 DEPLOYMENT_SET = os.path.abspath(os.path.join(HERE, '..', 'questions', 'deployment.yaml'))
 RESOURCES = os.path.join(PLUGIN, 'resources')
@@ -202,11 +204,8 @@ def digest(name, doc, language, why_ids, out):
 
 def set_of(kind):
     """The questions.yaml of a set name (`app-service`), whichever family holds it; or None."""
-    for family in sorted(os.listdir(RESOURCES)) if os.path.isdir(RESOURCES) else []:
-        p = os.path.join(RESOURCES, family, kind, 'questions.yaml')
-        if os.path.isfile(p):
-            return os.path.abspath(p)
-    return None
+    path = plugin_lib.set_path(kind)
+    return os.path.abspath(path) if path else None
 
 
 def pattern_digest(pattern, language, why_ids, out):

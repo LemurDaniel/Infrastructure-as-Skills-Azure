@@ -37,15 +37,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import drawio_png  # noqa: E402
 
-COLORS = {'green': '32', 'red': '31', 'yellow': '33'}
-USE_COLOR = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
-
-
-def say(text, color=None):
-    if color and USE_COLOR:
-        print(f"\033[{COLORS[color]}m{text}\033[0m")
-    else:
-        print(text)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'lib'))
+import plugin_lib  # noqa: E402 - the printer, the paths and the set lookup every script shares
+say = plugin_lib.say
 
 
 def find_drawio():
