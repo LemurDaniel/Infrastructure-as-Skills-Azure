@@ -367,8 +367,20 @@ the detail; this list says what was decided and why, so a session does not reope
 
 - **The spec format moved three times on 2026-11-18** (branch `pattern-skills`): the
   `pattern:` block and `wiring.secrets`, the shared vocabulary, roles in the wiring only.
-  Every tracked spec is moved over and every check is green, but **no eval has run against
-  the new format** (owner's call: the runs wait, for the token budget) and nothing is
+  Every tracked spec is moved over and every check is green. **One eval run has seen the
+  new format** (2026-11-18, commit `b36b7aa`, numbers in the description of #55): Sonnet 12
+  of 18 cases at 100%, 47 of 57 runs, **incomplete** - it stopped at $34.72 against the $30
+  ceiling, the four pattern cases alone cost about $12.40 - and Haiku 5 of 18, 22 of 60,
+  $1.71. Neither is on `eval-history`, the badge is not re-pinned, `baseline.json` is
+  untouched, and no temp directory was kept, so no failing spec was read. Three findings
+  were fixed without a re-run: `no-contributor-role` matched the role's name anywhere,
+  also in the reason of the override (0 of 4 on Sonnet); the rule for a keyless resource
+  covered only one that another resource reaches, so a lone storage account got no open
+  entry under `wiring.role_assignments` (1 of 2); the routing row for
+  `container-microservices` said "that call each other" against a worker nobody calls.
+  Unexplained on Sonnet and unread: `no-german-in-spec` 1 of 2, `no-invented-workspace-id`
+  3 of 4, `stages-default-stack` 1 of 2. Haiku records the pattern in 2 of 16 runs -
+  recorded, not chased. Nothing is
   re-rendered: the rendered examples changed in comments and test markers only.
   `examples/chat-sandbox` still reads `var.role_assignments` keyed by resource, and
   `eval-agent/infra` still passes empty `*RoleAssignments` parameters - correct code of the
@@ -1331,12 +1343,12 @@ regeneration from the spec loses them. All `render`:
 `question-set-format.md` and the render-map format name their stable interface. What is
 left of the sources (*Open*) is small and can follow.
 
-**The evals against the new format** (release 0.8.0): the branch changed the spec format
-three times - patterns, the shared vocabulary, roles in the wiring - and no eval has seen
-it. Run the suite on Sonnet and on Haiku on the release pull request (`dev` -> `master`),
-read the transcripts of `evals/patterns/` first - is the pattern proposed without a question
-of its own, do its asks land in their topics, is `apply_pattern.py` called - and expect the
-graders that name a role or an open role entry to move. The baseline is accepted only after
-reading the run. Then re-render `examples/chat-sandbox` and `eval-agent/infra` from their
+**A complete eval run for 0.8.0**: the first run on the new format is incomplete and its
+three fixes are unmeasured (*State*). Re-run on Sonnet with `--keep-temp` and a ceiling that
+fits the pattern cases (about $40 for the suite, or the three touched cases alone for
+$5-7: `patterns/webapp-departure-wins`, `spec/vague-public-dev`,
+`trigger/trigger-workload-request`), read the specs of every failing grader, then record
+the run on `eval-history`, pin the badge and only then accept the baseline.
+Then re-render `examples/chat-sandbox` and `eval-agent/infra` from their
 specs (roles from the wiring), and render one example from `ai-chat-rag` in both targets: the
 first render of `wiring.secrets` and of a pattern.

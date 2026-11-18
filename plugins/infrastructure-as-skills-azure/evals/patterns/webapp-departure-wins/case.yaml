@@ -46,19 +46,20 @@ graders:
 
   # The customer said the application only reads the files: their word wins over the
   # pattern's Contributor role, and the changed list no longer carries the pattern's name.
+  # Only a `role:` value counts - the departure's reason may name the role it replaces.
 
   - name: reader-role
     type: regex
     weight: 3
     target: { source: file, path: infra/infra-spec.yaml }
-    pattern: 'from:\s*\W?app-service__web\W?\s*\n\s+to:\s*\W?storage-account\W?\s*\n\s+role:\s*\W?Storage Blob Data Reader\b'
+    pattern: 'from:\s*\W?app-service__web\W?\s*[,\n]\s*to:\s*\W?storage-account\W?\s*[,\n]\s*role:\s*\W?Storage Blob Data Reader\b'
     flags: m
 
   - name: no-contributor-role
     type: regex
     weight: 3
     target: { source: file, path: infra/infra-spec.yaml }
-    pattern: 'Storage Blob Data Contributor'
+    pattern: '^[^#\n]*\brole:\s*\W?Storage Blob Data Contributor\b'
     flags: m
     match: not_contains
 

@@ -20,7 +20,7 @@ boundaries:
   - "Index, indexer, data source and skillset are content of the search service, created by the application or its pipeline - not infrastructure, and not rendered."
   - "Under a private exposure the indexer reaches the storage account and the model over shared private links of the search service. No question set renders one: it is an open item for the workload owner, named in Phase 4."
   - "Cosmos DB's containers and their partition keys are the application's data model: cosmos-db.containers.databases stays the workload owner's open item."
-  - "One application. A system of several containers that call each other is container-microservices, with the model, the search service and the storage account added as resources outside the pattern."
+  - "One application. A system of several services as containers is container-microservices, with the model, the search service and the storage account added as resources outside the pattern."
 
 parts:
   app-service__chat:

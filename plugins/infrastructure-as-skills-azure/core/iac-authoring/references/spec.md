@@ -762,7 +762,8 @@ a subscription or a platform resource is a `role-assignment` resource with its o
 set; the wiring holds relationships between two parts the spec names.
 
 **A consumer nobody named is an `open:` entry**, key `wiring.role_assignments`, with the owner
-who names it. `check_spec.py` warns when a resource whose `local_auth` is `disabled` is reached
+who names it - also for a keyless resource the spec gives no consumer at all, which nobody
+can use until a role is assigned. `check_spec.py` warns when a resource whose `local_auth` is `disabled` is reached
 by another resource (`wiring.access`) that holds no role on it and no such entry exists: the
 first call would be refused.
 

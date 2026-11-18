@@ -404,10 +404,12 @@ mapping:
 - **A role is wiring, never a resource's decision.** Who holds which role on which resource
   is one entry `{ from, to, role }` of `wiring.role_assignments`, the same list for every
   stage ([spec.md](references/spec.md#role-assignments)); no resource carries a role list.
-  A keyless resource (`local_auth: disabled`) that another one reaches is of no use until
-  that one holds a role on it: write the entry - the target's `notes.md`, *Roles*, names
-  the narrow role - and where nobody named the consumer, an `open:` entry with the key
-  `wiring.role_assignments` and its owner. `check_spec.py` warns on the gap.
+  A keyless resource (`local_auth: disabled`) is of no use until someone holds a role on
+  it. Another resource of the spec reaches it: write the entry - the target's `notes.md`,
+  *Roles*, names the narrow role. Nobody the spec names reaches it - a resource on its own,
+  a consumer outside the deployment: one `open:` entry whose `key` is literally
+  `wiring.role_assignments`, never the resource's key path, saying which resource waits
+  for a role and who names the consumer. `check_spec.py` warns on the gap.
 - **Context values are bare.** `context:` holds values (`environments: [...]`,
   `workload: payments`, a per-stage map), not `value:`/`source:` records; the provenance
   of a context value is the deployment set's, under `deployment:`.
