@@ -46,7 +46,7 @@ Read-only. Checks what the contract in references/spec.md promises:
      (spec_ref.py, references/ref-kinds.yaml).
   7b. A question marked `exclusive` (a subnet takes one NSG, one route table, one NAT
      gateway): no part is named by two resources of its set through it.
-  7c. Every subnet a virtual-network of the spec creates - listed, or the implied private
+  7c. Every subnet a virtual-network of the spec creates - listed, or the always present private
      endpoint subnet - is named by a network-security-group, but those Azure refuses one on
      (NO_NSG_SUBNETS).
   8. Resource groups: the groups are derived (rg_roles.groups) - one, `main`, unless
@@ -436,7 +436,7 @@ def main():
     for rkey, rnode in (get(spec, 'resources') or {}).items():
         if str(rkey).split('__')[0] != 'virtual-network':
             continue
-        for name in sorted(spec_ref.part_names(rnode, subnet_kind.get('part') or 'addressing.subnets', subnet_kind.get('implied'))):
+        for name in sorted(spec_ref.part_names(rnode, subnet_kind.get('listed_in') or 'addressing.subnets', subnet_kind.get('always_present'))):
             if name not in NO_NSG_SUBNETS and (str(rkey), name) not in guarded:
                 errors.append(f"subnet {name} of {rkey} has no network security group - every subnet the spec "
                               f"creates gets one (a network-security-group whose networking.subnets names it)")

@@ -75,7 +75,7 @@ groups:
 ### How a reference resolves
 
 A `{ ref: <kind> }` question's answer takes one of three paths from the interview to the code.
-The kind ([ref-kinds.yaml](ref-kinds.yaml)) says which sets may answer it and what an id of it
+The kind ([ref-kinds.yaml](ref-kinds.yaml)) says which set may answer it and what an id of it
 looks like; the spec form says where the id comes from:
 
 | The resource | In the spec | Rendered as | `check_spec.py` checks |

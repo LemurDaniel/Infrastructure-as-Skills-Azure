@@ -506,8 +506,9 @@ around it, no name and resource group:
   second parameter from the stage file, never in the spec: the `open:` entry asks for it,
   with the id or alone.
 
-What each kind is - the sets that create it, the part, the ARM type its id carries, the id's
-form (`arm`, `arm_any`, `guid`) - is [ref-kinds.yaml](ref-kinds.yaml); `check_spec.py` reads it
+What each kind is - the set that creates it or the resource it is a part of, and for one
+outside the spec the ARM type its id carries and the id's form (`arm`, `arm_any`, `guid`) -
+is [ref-kinds.yaml](ref-kinds.yaml); `check_spec.py` reads it
 for every reference (`scripts/spec_ref.py`).
 
 **An association is recorded on the resource that attaches.** An NSG, a route table and a NAT
@@ -517,7 +518,7 @@ one value for every stage. The association is still a property of the subnet, so
 module renders it (`on_part` in render-map.yaml). Such a question is `exclusive`: a subnet takes
 at most one of each, and `check_spec.py` fails on a second claim - and on a subnet the spec
 creates that no NSG names. The private endpoint subnet is a part too: the listed subnet
-carrying `private_endpoint_subnet_prefix`, or `endpoints` when none does (`implied` in
+carrying `private_endpoint_subnet_prefix`, or `endpoints` when none does (`always_present` in
 ref-kinds.yaml).
 
 ## Resource groups: roles, modes, names
